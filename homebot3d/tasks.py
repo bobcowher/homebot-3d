@@ -1,5 +1,4 @@
 import math
-import numpy as np
 from homebot3d.maps import Map
 from homebot3d.world import tile_center
 from homebot3d.constants import REACH_RADIUS

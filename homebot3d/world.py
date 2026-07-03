@@ -1,4 +1,3 @@
-import numpy as np
 from homebot3d.maps import Map, WALL
 from homebot3d.constants import TILE, WALL_HEIGHT, ROBOT_RADIUS, ROBOT_HALFHEIGHT
 

@@ -1,4 +1,3 @@
-import numpy as np
 from typing import Optional
 from homebot3d.maps import Map
 from homebot3d.world import tile_center

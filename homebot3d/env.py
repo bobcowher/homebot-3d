@@ -104,8 +104,20 @@ class HomeBot3DEnv(gym.Env):
 
 
 class HomeBot3DGoalEnv(HomeBot3DEnv):
+    """GoalEnv wrapper for HER training.
+
+    Supports single-goal HER only.  Multi-goal ``desired_goal`` advancement
+    (i.e. automatically cycling through multiple sub-goals as each is reached)
+    is deferred and not implemented; pass exactly one goal name.
+    """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if len(self.goals) != 1:
+            raise ValueError(
+                f"HomeBot3DGoalEnv supports single-goal HER only; got goals={self.goals}. "
+                "Multi-goal desired_goal advancement is not implemented."
+            )
         rgb = self.observation_space
         self.observation_space = spaces.Dict({
             "observation": rgb,
