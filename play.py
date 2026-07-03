@@ -48,6 +48,7 @@ def main():
             else:
                 action[:] = 0
 
+        term = trunc = False
         with mujoco.viewer.launch_passive(env.model, env.data,
                                           key_callback=key_cb) as v:
             while v.is_running():
