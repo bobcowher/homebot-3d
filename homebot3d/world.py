@@ -72,8 +72,8 @@ def build_mjcf(map: Map, robot_start=None) -> str:
 {_robot_body(map, robot_start)}
   </worldbody>
   <actuator>
-    <velocity name="vx" joint="slide_x" kv="8" ctrlrange="-2 2"/>
-    <velocity name="vy" joint="slide_y" kv="8" ctrlrange="-2 2"/>
+    <velocity name="vx" joint="slide_x" kv="20" ctrlrange="-2 2"/>
+    <velocity name="vy" joint="slide_y" kv="20" ctrlrange="-2 2"/>
     <velocity name="wz" joint="yaw" kv="2" ctrlrange="-3 3"/>
   </actuator>
 </mujoco>
