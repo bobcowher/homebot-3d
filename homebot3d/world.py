@@ -24,6 +24,23 @@ def _wall_geoms(map: Map) -> str:
     return "\n".join(parts)
 
 
+def _fixture_bodies(map: Map) -> str:
+    hx = hy = TILE * 0.6
+    hz = 0.35
+    colors = {"fridge": "0.6 0.7 0.9 1", "recliner": "0.5 0.3 0.2 1",
+              "door": "0.3 0.2 0.1 1"}
+    parts = []
+    for name, (col, row) in map.fixtures.items():
+        cx, cy = tile_center(col, row)
+        rgba = colors.get(name, "0.5 0.5 0.5 1")
+        parts.append(
+            f'<body name="fixture_{name}" pos="{cx} {cy} {hz}">'
+            f'<geom name="fixture_{name}_geom" type="box" '
+            f'size="{hx} {hy} {hz}" rgba="{rgba}"/></body>'
+        )
+    return "\n".join(parts)
+
+
 def build_mjcf(map: Map) -> str:
     rows, cols = map.tiles.shape
     fx = cols * TILE
@@ -36,6 +53,7 @@ def build_mjcf(map: Map) -> str:
     <geom name="floor" type="plane" pos="{fx/2} {fy/2} 0"
           size="{fx/2} {fy/2} 0.1" rgba="0.85 0.82 0.78 1"/>
 {_wall_geoms(map)}
+{_fixture_bodies(map)}
   </worldbody>
 </mujoco>
 """
