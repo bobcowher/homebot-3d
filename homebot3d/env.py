@@ -101,3 +101,33 @@ class HomeBot3DEnv(gym.Env):
         if self._camera is not None:
             self._camera.close()
             self._camera = None
+
+
+class HomeBot3DGoalEnv(HomeBot3DEnv):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        rgb = self.observation_space
+        self.observation_space = spaces.Dict({
+            "observation": rgb,
+            "achieved_goal": spaces.Box(-np.inf, np.inf, (2,), np.float32),
+            "desired_goal": spaces.Box(-np.inf, np.inf, (2,), np.float32),
+        })
+
+    def _dict_obs(self, rgb):
+        return {
+            "observation": rgb,
+            "achieved_goal": np.array([self._robot.x, self._robot.y], np.float32),
+            "desired_goal": np.array(self._goal_xy(), np.float32),
+        }
+
+    def reset(self, seed=None, options=None):
+        obs, info = super().reset(seed=seed, options=options)
+        return self._dict_obs(obs), info
+
+    def step(self, action):
+        obs, reward, terminated, truncated, info = super().step(action)
+        return self._dict_obs(obs), reward, terminated, truncated, info
+
+    def compute_reward(self, achieved_goal, desired_goal, info):
+        d = np.linalg.norm(np.asarray(achieved_goal) - np.asarray(desired_goal), axis=-1)
+        return np.where(d <= REACH_RADIUS, 0.0, -1.0)
