@@ -1,6 +1,6 @@
 import numpy as np
 from homebot3d.maps import Map, WALL
-from homebot3d.constants import TILE, WALL_HEIGHT
+from homebot3d.constants import TILE, WALL_HEIGHT, ROBOT_RADIUS, ROBOT_HALFHEIGHT
 
 
 def tile_center(col: int, row: int) -> tuple[float, float]:
@@ -41,7 +41,22 @@ def _fixture_bodies(map: Map) -> str:
     return "\n".join(parts)
 
 
-def build_mjcf(map: Map) -> str:
+def _robot_body(map: Map, robot_start) -> str:
+    col, row = robot_start if robot_start is not None else map.robot_start_tile
+    cx, cy = tile_center(col, row)
+    z = ROBOT_HALFHEIGHT
+    return f"""
+    <body name="robot" pos="{cx} {cy} {z}">
+      <joint name="slide_x" type="slide" axis="1 0 0"/>
+      <joint name="slide_y" type="slide" axis="0 1 0"/>
+      <joint name="yaw" type="hinge" axis="0 0 1"/>
+      <geom name="robot_body" type="cylinder"
+            size="{ROBOT_RADIUS} {ROBOT_HALFHEIGHT}" rgba="0.2 0.6 0.3 1"/>
+      <camera name="ego" pos="{ROBOT_RADIUS} 0 0.1" xyaxes="0 -1 0 0 0 1"/>
+    </body>"""
+
+
+def build_mjcf(map: Map, robot_start=None) -> str:
     rows, cols = map.tiles.shape
     fx = cols * TILE
     fy = rows * TILE
@@ -54,6 +69,12 @@ def build_mjcf(map: Map) -> str:
           size="{fx/2} {fy/2} 0.1" rgba="0.85 0.82 0.78 1"/>
 {_wall_geoms(map)}
 {_fixture_bodies(map)}
+{_robot_body(map, robot_start)}
   </worldbody>
+  <actuator>
+    <velocity name="vx" joint="slide_x" kv="8" ctrlrange="-2 2"/>
+    <velocity name="vy" joint="slide_y" kv="8" ctrlrange="-2 2"/>
+    <velocity name="wz" joint="yaw" kv="2" ctrlrange="-3 3"/>
+  </actuator>
 </mujoco>
 """
