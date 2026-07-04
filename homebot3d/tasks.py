@@ -15,12 +15,17 @@ class TaskManager:
         self.drink_done = False
         self.package_done = False
 
-    def reset(self, map: Map, n_trash, rng):
+    def reset(self, map: Map, n_trash, rng, trash=None):
+        # trash positions are spawned by the env before model compile (so they can
+        # be rendered) and passed in; fall back to spawning here if not provided.
         self._map = map
-        self.trash_positions = (
-            map.spawn_trash(n_trash, rng, exclude=list(map.fixtures.values()))
-            if "trash" in self.goals else []
-        )
+        if "trash" not in self.goals:
+            self.trash_positions = []
+        elif trash is not None:
+            self.trash_positions = list(trash)
+        else:
+            self.trash_positions = map.spawn_trash(
+                n_trash, rng, exclude=list(map.fixtures.values()))
         self.drink_done = False
         self.package_done = False
 
