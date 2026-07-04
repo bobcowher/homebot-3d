@@ -117,14 +117,14 @@ def _furniture_geoms(name: str) -> str:
     if name == "recliner":
         return (
             f'<geom name="fixture_recliner_seat" type="box" size="0.28 0.28 0.12" '
-            f'pos="0 0 0.12" rgba="0.5 0.3 0.2 1"/>'
+            f'pos="0 0 0.12" material="fabricmat"/>'
             f'<geom name="fixture_recliner_back" type="box" size="0.28 0.06 0.20" '
-            f'pos="0 -0.22 0.32" rgba="0.45 0.27 0.18 1"/>'
+            f'pos="0 -0.22 0.32" material="fabricmat"/>'
         )
     if name == "door":
         return (
             f'<geom name="fixture_door_panel" type="box" size="0.28 0.05 0.5" '
-            f'pos="0 0 0.5" rgba="0.32 0.22 0.12 1"/>'
+            f'pos="0 0 0.5" material="woodmat"/>'
             f'<geom name="fixture_door_knob" type="sphere" size="0.03" '
             f'pos="0.18 0.06 0.5" rgba="0.85 0.7 0.2 1"/>'
         )
@@ -133,6 +133,72 @@ def _furniture_geoms(name: str) -> str:
         f'<geom name="fixture_{name}_box" type="box" size="0.28 0.28 0.3" '
         f'pos="0 0 0.3" rgba="0.5 0.5 0.5 1"/>'
     )
+
+
+def _furniture_piece(kind: str, idx: int) -> str:
+    """Textured multi-geom furniture, geoms local to a body at floor level.
+
+    Every geom's |offset| + half-extent stays <= REACH_RADIUS - ROBOT_RADIUS
+    (0.57 m) on x and y so a goal at the piece centre remains reachable and the
+    piece never walls off a room.
+    """
+    p = f"fixture_{kind}_{idx}"
+    if kind == "sofa":
+        return (
+            f'<geom name="{p}_seat" type="box" size="0.5 0.22 0.12" '
+            f'pos="0 0 0.12" material="fabricmat"/>'
+            f'<geom name="{p}_back" type="box" size="0.5 0.07 0.18" '
+            f'pos="0 -0.18 0.28" material="fabricmat"/>'
+        )
+    if kind == "coffee_table":
+        return (
+            f'<geom name="{p}_top" type="box" size="0.28 0.18 0.03" '
+            f'pos="0 0 0.22" material="woodmat"/>'
+            f'<geom name="{p}_leg" type="box" size="0.24 0.14 0.11" '
+            f'pos="0 0 0.11" material="woodmat"/>'
+        )
+    if kind == "counter":
+        return (
+            f'<geom name="{p}_base" type="box" size="0.5 0.22 0.40" '
+            f'pos="0 0 0.40" material="woodmat"/>'
+            f'<geom name="{p}_top" type="box" size="0.5 0.22 0.02" '
+            f'pos="0 0 0.42" material="tilemat"/>'
+        )
+    if kind == "kitchen_table":
+        return (
+            f'<geom name="{p}_top" type="box" size="0.35 0.35 0.03" '
+            f'pos="0 0 0.35" material="woodmat"/>'
+            f'<geom name="{p}_leg" type="box" size="0.30 0.30 0.16" '
+            f'pos="0 0 0.16" material="woodmat"/>'
+        )
+    if kind == "bed":
+        return (
+            f'<geom name="{p}_mattress" type="box" size="0.5 0.5 0.12" '
+            f'pos="0 0 0.16" material="fabricmat"/>'
+            f'<geom name="{p}_headboard" type="box" size="0.5 0.06 0.22" '
+            f'pos="0 -0.45 0.22" material="woodmat"/>'
+        )
+    if kind == "nightstand":
+        return (
+            f'<geom name="{p}_box" type="box" size="0.15 0.15 0.25" '
+            f'pos="0 0 0.25" material="woodmat"/>'
+        )
+    # Fallback: a plain textured box.
+    return (
+        f'<geom name="{p}_box" type="box" size="0.28 0.28 0.28" '
+        f'pos="0 0 0.28" material="woodmat"/>'
+    )
+
+
+def _furniture_bodies(map: Map) -> str:
+    parts = []
+    for idx, (kind, col, row) in enumerate(getattr(map, "furniture", [])):
+        cx, cy = tile_center(col, row)
+        parts.append(
+            f'<body name="fixture_{kind}_{idx}" pos="{cx} {cy} 0">'
+            f'{_furniture_piece(kind, idx)}</body>'
+        )
+    return "\n".join(parts)
 
 
 def _fixture_bodies(map: Map) -> str:
@@ -207,6 +273,7 @@ def build_mjcf(map: Map, robot_start=None) -> str:
 {_wall_geoms(map)}
 {_door_frames(map)}
 {_fixture_bodies(map)}
+{_furniture_bodies(map)}
 {_robot_body(map, robot_start)}
   </worldbody>
   <actuator>

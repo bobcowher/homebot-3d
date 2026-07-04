@@ -59,6 +59,15 @@ class DefaultHouseMap(Map):
             ("v", 23, 9, 10),   # east exit
         ]
         self.robot_start_tile = (8, 4)
+        # (kind, col, row) — non-goal obstacle furniture, one-body each.
+        self.furniture = [
+            ("sofa",          3, 3),    # living
+            ("coffee_table",  5, 3),    # living
+            ("counter",      20, 3),    # kitchen
+            ("kitchen_table",16, 4),    # kitchen
+            ("bed",           4, 14),   # bedroom
+            ("nightstand",    2, 14),   # bedroom
+        ]
         self._finalize()
 
 
