@@ -70,7 +70,11 @@ def main():
         glfw.terminate()
         raise SystemExit("Failed to create GLFW window")
     glfw.make_context_current(window)
-    glfw.swap_interval(0)  # no vsync; the timestep sleep below paces the loop
+    glfw.swap_interval(1)  # vsync on: cap the loop to display refresh so the
+    # window shows whole frames. Without it, an RTX-class GPU renders ~750 fps
+    # to a 60 Hz panel and the monitor samples mid-swap — tearing that reads as
+    # "chunky" motion. The accumulator (below) still advances physics by real
+    # wall-time, feeding 1-2 steps per vsynced frame, so motion stays smooth.
     glfw.set_key_callback(window, on_key)
 
     cam = mujoco.MjvCamera()
@@ -136,7 +140,8 @@ def main():
             print(f"render {fps_frames / (now - fps_mark):.0f} fps")
             fps_mark, fps_frames = now, 0
 
-        time.sleep(0.001)      # yield CPU so a fast render doesn't busy-spin
+        # No manual sleep: glfw.swap_buffers blocks until vblank (swap_interval
+        # 1), which both paces the loop and yields the CPU.
 
     glfw.terminate()
     env.close()
