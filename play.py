@@ -44,6 +44,9 @@ def main():
     p.add_argument("--random-start", action="store_true")
     p.add_argument("--max-steps", type=int, default=100000,
                    help="episode truncation cap; high so free-driving isn't cut short")
+    p.add_argument("--debug-input", action="store_true",
+                   help="log held-key set changes and a per-second W-held ratio "
+                        "to diagnose stop/go input dropout")
     args = p.parse_args()
 
     env = HomeBot3DEnv(goals=tuple(args.goals), map_name=args.map,
@@ -97,6 +100,9 @@ def main():
 
     apply_camera()
     fps_mark, fps_frames = time.time(), 0
+    prev_held = set()          # for --debug-input transition logging
+    w_frames = w_held = 0      # per-second W-held ratio
+    last_xy = (env._robot.x, env._robot.y)   # for per-second distance-moved
 
     while not glfw.window_should_close(window):
         glfw.poll_events()
@@ -104,6 +110,15 @@ def main():
         held = {ch for key, ch in _KEYMAP.items()
                 if glfw.get_key(window, key) == glfw.PRESS}
         action = keys_to_action(held)
+
+        if args.debug_input:
+            if held != prev_held:
+                print(f"[{time.time():.3f}] held: "
+                      f"{''.join(sorted(prev_held)) or '-'} -> "
+                      f"{''.join(sorted(held)) or '-'}")
+                prev_held = held
+            w_frames += 1
+            w_held += 1 if "w" in held else 0
 
         reward, term, _, _ = env.step_physics(action)
         if reward > 0:
@@ -136,6 +151,28 @@ def main():
         now = time.time()
         if now - fps_mark >= 1.0:
             print(f"render {fps_frames / (now - fps_mark):.0f} fps")
+            if args.debug_input:
+                import math
+                r = env._robot
+                rx, ry = r.x, r.y
+                moved = ((rx - last_xy[0]) ** 2 + (ry - last_xy[1]) ** 2) ** 0.5
+                d = env.data
+                hdg = math.degrees(r.heading) % 360
+                cvx, cvy = float(d.ctrl[r._a_vx]), float(d.ctrl[r._a_vy])
+                # names of every geom robot_body is currently contacting (any prefix)
+                touching = set()
+                for i in range(d.ncon):
+                    c = d.contact[i]
+                    if r._body_geom in (c.geom1, c.geom2):
+                        o = c.geom2 if c.geom1 == r._body_geom else c.geom1
+                        touching.add(mujoco.mj_id2name(env.model,
+                                     mujoco.mjtObj.mjOBJ_GEOM, o) or f"geom{o}")
+                print(f"    W held {w_held}/{w_frames} frames | "
+                      f"pos=({rx:.2f},{ry:.2f}) moved={moved:.3f}m/s hdg={hdg:.0f} | "
+                      f"cmd_v=({cvx:+.2f},{cvy:+.2f}) "
+                      f"touching={sorted(touching) or '-'}")
+                last_xy = (rx, ry)
+                w_frames = w_held = 0
             fps_mark, fps_frames = now, 0
 
     glfw.terminate()
