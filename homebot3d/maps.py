@@ -10,6 +10,8 @@ class Map:
     fixtures: dict           # {name: (col, row)}
     robot_start_tile: tuple  # (col, row)
     door_tiles: list
+    doorways: list           # [(axis, line, lo, hi)] — drives door-frame posts
+    furniture: list          # [(kind, col, row)] — non-goal obstacle pieces
 
     def _finalize(self):
         mask = self.tiles == FLOOR

@@ -4,7 +4,7 @@ from gymnasium import spaces
 import mujoco
 
 from homebot3d.maps import MAP_REGISTRY
-from homebot3d.world import build_mjcf, compile_model, tile_center
+from homebot3d.world import compile_model, tile_center
 from homebot3d.robot import Robot
 from homebot3d.sensors import Camera, privileged
 from homebot3d.tasks import TaskManager

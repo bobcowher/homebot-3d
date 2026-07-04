@@ -1,3 +1,4 @@
+from functools import lru_cache
 from pathlib import Path
 
 import mujoco
@@ -287,8 +288,14 @@ def build_mjcf(map: Map, robot_start=None) -> str:
 """
 
 
+@lru_cache(maxsize=1)
 def texture_assets() -> dict[str, bytes]:
-    """Committed texture PNGs as filename -> bytes, for MjModel asset injection."""
+    """Committed texture PNGs as filename -> bytes, for MjModel asset injection.
+
+    Cached: the PNGs are static committed bytes, so read them once and reuse the
+    dict across every compile_model call (reset_world compiles on each episode
+    reset — a reset-heavy RL loop would otherwise re-read ~285 KB every reset).
+    """
     return {name: (_TEX_DIR / name).read_bytes() for name in _TEX_FILES}
 
 
