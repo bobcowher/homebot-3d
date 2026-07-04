@@ -83,29 +83,43 @@ def main():
 
     apply_camera()
     timestep = env.model.opt.timestep
+    MAX_FRAME = 0.25          # clamp elapsed time so a hitch can't spiral the sim
+    prev = time.time()
+    accumulator = 0.0
+    fps_mark, fps_frames = prev, 0
 
     while not glfw.window_should_close(window):
-        step_start = time.time()
-        glfw.poll_events()
+        now = time.time()
+        accumulator += min(now - prev, MAX_FRAME)
+        prev = now
 
+        glfw.poll_events()
         # Poll physical key state for continuous movement (auto-repeat safe).
         held = {ch for key, ch in _KEYMAP.items()
                 if glfw.get_key(window, key) == glfw.PRESS}
-        reward, term, _, _ = env.step_physics(keys_to_action(held))
-        if reward > 0:
-            print(f"+{reward}")
+        action = keys_to_action(held)
 
-        # Reset only on manual R or genuine termination (all goals reached) —
-        # NOT on truncation, which would cut a manual drive short.
-        if state["reset"] or term:
-            env.reset_world(seed=None)
-            # Model instance changed — free the old GL context, rebuild
-            # scene/context against the new model.
-            context.free()
-            scene = mujoco.MjvScene(env.model, maxgeom=10000)
-            context = mujoco.MjrContext(env.model,
-                                        mujoco.mjtFontScale.mjFONTSCALE_150)
-            state["reset"] = False
+        # Advance physics by the real elapsed time in fixed timesteps, instead of
+        # exactly one step per rendered frame. Pinning sim to render cadence made
+        # on-screen speed lurch whenever frame times varied — the "chunky" feel.
+        while accumulator >= timestep:
+            reward, term, _, _ = env.step_physics(action)
+            accumulator -= timestep
+            if reward > 0:
+                print(f"+{reward}")
+            # Reset only on manual R or genuine termination (all goals reached) —
+            # NOT on truncation, which would cut a manual drive short.
+            if state["reset"] or term:
+                env.reset_world(seed=None)
+                # Model instance changed — free the old GL context, rebuild
+                # scene/context against the new model.
+                context.free()
+                scene = mujoco.MjvScene(env.model, maxgeom=10000)
+                context = mujoco.MjrContext(env.model,
+                                            mujoco.mjtFontScale.mjFONTSCALE_150)
+                state["reset"] = False
+                accumulator = 0.0
+                break
         apply_camera()
 
         w, h = glfw.get_framebuffer_size(window)
@@ -115,9 +129,14 @@ def main():
         mujoco.mjr_render(viewport, scene, context)
         glfw.swap_buffers(window)
 
-        dt = timestep - (time.time() - step_start)
-        if dt > 0:
-            time.sleep(dt)
+        # Effective render FPS once a second: distinguishes a render bottleneck
+        # (low fps => scene too heavy / software GL) from a sim-pacing issue.
+        fps_frames += 1
+        if now - fps_mark >= 1.0:
+            print(f"render {fps_frames / (now - fps_mark):.0f} fps")
+            fps_mark, fps_frames = now, 0
+
+        time.sleep(0.001)      # yield CPU so a fast render doesn't busy-spin
 
     glfw.terminate()
     env.close()

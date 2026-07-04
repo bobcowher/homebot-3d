@@ -1,6 +1,6 @@
 TILE = 0.5              # metres per grid tile
 WALL_HEIGHT = 1.2       # metres
-WALL_THICK = 0.08       # metres — thickness of a wall panel / jamb post
+WALL_THICK = 0.06       # metres — thickness of a wall panel / jamb post
 ROBOT_RADIUS = 0.18     # metres (cylinder radius)
 ROBOT_HALFHEIGHT = 0.12 # metres (cylinder half-height)
 MAX_LIN = 1.0           # m/s at action = 1.0

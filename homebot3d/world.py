@@ -36,47 +36,66 @@ def _asset_block() -> str:
   </asset>"""
 
 
-def _wall_geoms(map: Map) -> str:
-    """Thin boundary wall panels.
+def _merge_runs(indices) -> list[tuple[int, int]]:
+    """Collapse a set of ints into (start, end) inclusive contiguous runs."""
+    runs: list[list[int]] = []
+    for k in sorted(indices):
+        if runs and k == runs[-1][1] + 1:
+            runs[-1][1] = k
+        else:
+            runs.append([k, k])
+    return [(a, b) for a, b in runs]
 
-    For each floor cell, emit a thin panel on every edge shared with a wall
-    cell or the grid border. Panels are WALL_THICK thick on the boundary-normal
-    axis and slightly over-long on their tangent axis so perpendicular panels
-    overlap and close corner gaps. All named wall_{i} so Robot.collided()
-    detects them.
+
+def _wall_box(i: int, px: float, py: float, hx: float, hy: float, hz: float) -> str:
+    return (f'<geom name="wall_{i}" type="box" '
+            f'size="{hx} {hy} {hz}" pos="{px} {py} {hz}" material="wallmat"/>')
+
+
+def _wall_geoms(map: Map) -> str:
+    """Thin single-panel walls on each wall tile's centreline.
+
+    A 1-tile-thick wall line becomes ONE thin panel centred on the tile rather
+    than two panels on its floor-facing faces. The two-face approach read as a
+    0.5 m-thick wall and, because adjacent cells emitted overlapping coplanar
+    panels, z-fought and flickered as the camera moved. Here each wall tile
+    that borders floor contributes to a centreline panel, and collinear tiles
+    are merged into continuous runs so no two panels share a coplanar face.
+    Panels are WALL_THICK thick, named wall_{i} so Robot.collided() detects them.
     """
     rows, cols = map.tiles.shape
     hz = WALL_HEIGHT / 2
     thin = WALL_THICK / 2
-    long = TILE / 2 + WALL_THICK / 2      # tangent half-extent with corner overlap
-    parts = []
-    i = 0
+    ext = WALL_THICK / 2                   # extend run ends to close corner gaps
 
-    def is_wall(r, c):
-        return (r < 0 or r >= rows or c < 0 or c >= cols
-                or map.tiles[r, c] == WALL)
+    def is_floor(r, c):
+        return 0 <= r < rows and 0 <= c < cols and map.tiles[r, c] == FLOOR
 
+    h_lines: dict[int, set] = {}          # row -> cols carrying a horizontal panel
+    v_lines: dict[int, set] = {}          # col -> rows carrying a vertical panel
     for r in range(rows):
         for c in range(cols):
-            if map.tiles[r, c] != FLOOR:
+            if map.tiles[r, c] != WALL:
                 continue
-            cx, cy = tile_center(c, r)
-            edges = []
-            if is_wall(r - 1, c):                    # north (smaller y)
-                edges.append((cx, r * TILE, long, thin))
-            if is_wall(r + 1, c):                    # south (larger y)
-                edges.append((cx, (r + 1) * TILE, long, thin))
-            if is_wall(r, c - 1):                    # west (smaller x)
-                edges.append((c * TILE, cy, thin, long))
-            if is_wall(r, c + 1):                    # east (larger x)
-                edges.append(((c + 1) * TILE, cy, thin, long))
-            for (px, py, hx, hy) in edges:
-                parts.append(
-                    f'<geom name="wall_{i}" type="box" '
-                    f'size="{hx} {hy} {hz}" pos="{px} {py} {hz}" '
-                    f'material="wallmat"/>'
-                )
-                i += 1
+            if is_floor(r - 1, c) or is_floor(r + 1, c):
+                h_lines.setdefault(r, set()).add(c)
+            if is_floor(r, c - 1) or is_floor(r, c + 1):
+                v_lines.setdefault(c, set()).add(r)
+
+    parts = []
+    i = 0
+    for r, cset in sorted(h_lines.items()):
+        cy = (r + 0.5) * TILE
+        for c0, c1 in _merge_runs(cset):
+            x0, x1 = c0 * TILE - ext, (c1 + 1) * TILE + ext
+            parts.append(_wall_box(i, (x0 + x1) / 2, cy, (x1 - x0) / 2, thin, hz))
+            i += 1
+    for c, rset in sorted(v_lines.items()):
+        cx = (c + 0.5) * TILE
+        for r0, r1 in _merge_runs(rset):
+            y0, y1 = r0 * TILE - ext, (r1 + 1) * TILE + ext
+            parts.append(_wall_box(i, cx, (y0 + y1) / 2, thin, (y1 - y0) / 2, hz))
+            i += 1
     return "\n".join(parts)
 
 
