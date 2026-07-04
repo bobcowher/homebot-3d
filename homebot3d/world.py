@@ -38,19 +38,48 @@ def _wall_geoms(map: Map) -> str:
     return "\n".join(parts)
 
 
+def _furniture_geoms(name: str) -> str:
+    """Multi-geom procedural furniture, all geoms named fixture_{name}_*.
+
+    Positions are relative to the fixture body origin at floor level (z=0).
+    All x/y half-extents stay <= 0.3 m so a goal at the fixture centre is
+    reachable within REACH_RADIUS.
+    """
+    if name == "fridge":
+        return (
+            f'<geom name="fixture_fridge_body" type="box" size="0.22 0.22 0.45" '
+            f'pos="0 0 0.45" rgba="0.72 0.78 0.85 1"/>'
+            f'<geom name="fixture_fridge_door" type="box" size="0.02 0.20 0.4" '
+            f'pos="0.22 0 0.5" rgba="0.6 0.66 0.74 1"/>'
+        )
+    if name == "recliner":
+        return (
+            f'<geom name="fixture_recliner_seat" type="box" size="0.28 0.28 0.12" '
+            f'pos="0 0 0.12" rgba="0.5 0.3 0.2 1"/>'
+            f'<geom name="fixture_recliner_back" type="box" size="0.28 0.06 0.20" '
+            f'pos="0 -0.22 0.32" rgba="0.45 0.27 0.18 1"/>'
+        )
+    if name == "door":
+        return (
+            f'<geom name="fixture_door_panel" type="box" size="0.28 0.05 0.5" '
+            f'pos="0 0 0.5" rgba="0.32 0.22 0.12 1"/>'
+            f'<geom name="fixture_door_knob" type="sphere" size="0.03" '
+            f'pos="0.18 0.06 0.5" rgba="0.85 0.7 0.2 1"/>'
+        )
+    # Fallback: a plain box for any other fixture name.
+    return (
+        f'<geom name="fixture_{name}_box" type="box" size="0.28 0.28 0.3" '
+        f'pos="0 0 0.3" rgba="0.5 0.5 0.5 1"/>'
+    )
+
+
 def _fixture_bodies(map: Map) -> str:
-    hx = hy = TILE * 0.6
-    hz = 0.35
-    colors = {"fridge": "0.6 0.7 0.9 1", "recliner": "0.5 0.3 0.2 1",
-              "door": "0.3 0.2 0.1 1"}
     parts = []
     for name, (col, row) in map.fixtures.items():
         cx, cy = tile_center(col, row)
-        rgba = colors.get(name, "0.5 0.5 0.5 1")
         parts.append(
-            f'<body name="fixture_{name}" pos="{cx} {cy} {hz}">'
-            f'<geom name="fixture_{name}_geom" type="box" '
-            f'size="{hx} {hy} {hz}" rgba="{rgba}"/></body>'
+            f'<body name="fixture_{name}" pos="{cx} {cy} 0">'
+            f'{_furniture_geoms(name)}</body>'
         )
     return "\n".join(parts)
 
