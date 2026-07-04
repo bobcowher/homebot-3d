@@ -61,6 +61,9 @@ def main():
     if not glfw.init():
         raise SystemExit("Failed to init GLFW")
     window = glfw.create_window(1200, 800, "HomeBot3D teleop", None, None)
+    if not window:
+        glfw.terminate()
+        raise SystemExit("Failed to create GLFW window")
     glfw.make_context_current(window)
     glfw.swap_interval(0)  # no vsync; the timestep sleep below paces the loop
     glfw.set_key_callback(window, on_key)
@@ -85,7 +88,9 @@ def main():
 
         if state["reset"] or term or trunc:
             env.reset_world(seed=None)
-            # Model instance changed — rebuild scene/context and re-apply camera.
+            # Model instance changed — free the old GL context, rebuild
+            # scene/context against the new model, re-apply camera.
+            context.free()
             scene = mujoco.MjvScene(env.model, maxgeom=10000)
             context = mujoco.MjrContext(env.model,
                                         mujoco.mjtFontScale.mjFONTSCALE_150)

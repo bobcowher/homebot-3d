@@ -31,10 +31,13 @@ def test_fixtures_have_multiple_geoms_all_prefixed():
 
 
 def test_furniture_geoms_are_reachable_sized():
+    from homebot3d.constants import REACH_RADIUS, ROBOT_RADIUS
     m = DefaultHouseMap()
     model = mujoco.MjModel.from_xml_string(build_mjcf(m))
+    margin = REACH_RADIUS - ROBOT_RADIUS  # robot can reach within this of centre
     for gid in range(model.ngeom):
         name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM, gid) or ""
         if name.startswith("fixture_"):
-            assert model.geom_size[gid][0] <= 0.3 + 1e-9
-            assert model.geom_size[gid][1] <= 0.3 + 1e-9
+            for k in (0, 1):  # x, y: |offset from centre| + half-extent <= margin
+                surface = abs(model.geom_pos[gid][k]) + model.geom_size[gid][k]
+                assert surface <= margin + 1e-9, f"{name} axis {k} surface {surface}"
