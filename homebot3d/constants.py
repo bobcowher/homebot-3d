@@ -5,3 +5,7 @@ ROBOT_HALFHEIGHT = 0.12 # metres (cylinder half-height)
 MAX_LIN = 1.0           # m/s at action = 1.0
 MAX_ANG = 2.0           # rad/s at action = 1.0
 REACH_RADIUS = 0.75     # metres — goal reached when body centre within this planar distance
+CAMERA_HEIGHT = 0.6         # metres above floor — ego camera / sensor head height
+ROBOT_BODY_HALF = 0.12      # torso box half-extent in x and y (metres)
+ROBOT_BODY_HALFHEIGHT = 0.09  # torso box half-height (metres)
+WHEEL_RADIUS = 0.06         # cosmetic wheel radius (metres)
