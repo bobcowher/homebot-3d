@@ -151,11 +151,26 @@ def _furniture_geoms(name: str) -> str:
             f'pos="0.22 0 0.5" rgba="0.6 0.66 0.74 1"/>'
         )
     if name == "recliner":
+        # Recliner (seat + back) with a seated human the robot serves. The human
+        # sits on the seat (top at z=0.24) facing +y, away from the back at -y.
+        # Geoms are fixture_human_* so they collide and register like any fixture;
+        # all stay within ~0.3 m of centre so the drink goal is still reachable.
         return (
             f'<geom name="fixture_recliner_seat" type="box" size="0.28 0.28 0.12" '
             f'pos="0 0 0.12" material="fabricmat"/>'
             f'<geom name="fixture_recliner_back" type="box" size="0.28 0.06 0.20" '
             f'pos="0 -0.22 0.32" material="fabricmat"/>'
+            # thighs on the seat, torso, head, and arms — a simple seated figure
+            f'<geom name="fixture_human_lap" type="box" size="0.16 0.14 0.06" '
+            f'pos="0 0.10 0.30" rgba="0.30 0.32 0.38 1"/>'
+            f'<geom name="fixture_human_torso" type="box" size="0.15 0.10 0.17" '
+            f'pos="0 -0.06 0.53" rgba="0.22 0.42 0.60 1"/>'
+            f'<geom name="fixture_human_head" type="sphere" size="0.09" '
+            f'pos="0 -0.04 0.80" rgba="0.82 0.62 0.50 1"/>'
+            f'<geom name="fixture_human_arm_l" type="box" size="0.045 0.06 0.15" '
+            f'pos="0.17 -0.02 0.52" rgba="0.22 0.42 0.60 1"/>'
+            f'<geom name="fixture_human_arm_r" type="box" size="0.045 0.06 0.15" '
+            f'pos="-0.17 -0.02 0.52" rgba="0.22 0.42 0.60 1"/>'
         )
     if name == "door":
         return (
@@ -248,6 +263,24 @@ def _fixture_bodies(map: Map) -> str:
     return "\n".join(parts)
 
 
+def _trash_geoms(trash) -> str:
+    """Small visual litter geoms on the floor at each trash tile.
+
+    Visual-only (contype/conaffinity 0) so the robot drives onto a piece to
+    "collect" it (reward is reach-based). Named trash_* — NOT the wall_/fixture_
+    prefixes, so Robot.collided() ignores them.
+    """
+    parts = []
+    for i, (col, row) in enumerate(trash or []):
+        cx, cy = tile_center(col, row)
+        parts.append(
+            f'<geom name="trash_{i}" type="sphere" size="0.05" '
+            f'pos="{cx} {cy} 0.05" contype="0" conaffinity="0" '
+            f'rgba="0.78 0.75 0.62 1"/>'
+        )
+    return "\n".join(parts)
+
+
 def _robot_body(map: Map, robot_start) -> str:
     col, row = robot_start if robot_start is not None else map.robot_start_tile
     cx, cy = tile_center(col, row)
@@ -293,7 +326,7 @@ def _robot_body(map: Map, robot_start) -> str:
     </body>"""
 
 
-def build_mjcf(map: Map, robot_start=None) -> str:
+def build_mjcf(map: Map, robot_start=None, trash=None) -> str:
     rows, cols = map.tiles.shape
     fx = cols * TILE
     fy = rows * TILE
@@ -312,6 +345,7 @@ def build_mjcf(map: Map, robot_start=None) -> str:
 {_door_frames(map)}
 {_fixture_bodies(map)}
 {_furniture_bodies(map)}
+{_trash_geoms(trash)}
 {_robot_body(map, robot_start)}
   </worldbody>
   <actuator>
@@ -342,7 +376,7 @@ def texture_assets() -> dict[str, bytes]:
     return {name: (_TEX_DIR / name).read_bytes() for name in _TEX_FILES}
 
 
-def compile_model(map: Map, robot_start=None) -> mujoco.MjModel:
+def compile_model(map: Map, robot_start=None, trash=None) -> mujoco.MjModel:
     """Compile the house MJCF with texture bytes supplied inline (no fs lookup)."""
     return mujoco.MjModel.from_xml_string(
-        build_mjcf(map, robot_start), texture_assets())
+        build_mjcf(map, robot_start, trash), texture_assets())

@@ -52,11 +52,16 @@ class HomeBot3DEnv(gym.Env):
     def reset_world(self, seed=None):
         rng = np.random.default_rng(seed)
         start = self._sample_start_tile(rng)
-        self.model = compile_model(self._map, robot_start=start)
+        # Spawn trash before compiling so the pieces render in the model, then hand
+        # the same positions to the task manager so rewards match what's on screen.
+        trash = (self._map.spawn_trash(
+                    self.n_trash, rng, exclude=list(self._map.fixtures.values()))
+                 if "trash" in self.goals else [])
+        self.model = compile_model(self._map, robot_start=start, trash=trash)
         self.data = mujoco.MjData(self.model)
         mujoco.mj_forward(self.model, self.data)
         self._robot = Robot(self.model, self.data)
-        self._tasks.reset(self._map, self.n_trash, rng)
+        self._tasks.reset(self._map, self.n_trash, rng, trash=trash)
         self._steps = 0
         return self._info()
 
