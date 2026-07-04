@@ -1,12 +1,12 @@
 import numpy as np
 import mujoco
 from homebot3d.maps import DefaultHouseMap
-from homebot3d.world import build_mjcf, tile_center
+from homebot3d.world import compile_model, tile_center
 from homebot3d.constants import ROBOT_HALFHEIGHT, CAMERA_HEIGHT
 
 def _model(robot_start=None):
     m = DefaultHouseMap()
-    return m, mujoco.MjModel.from_xml_string(build_mjcf(m, robot_start=robot_start))
+    return m, compile_model(m, robot_start=robot_start)
 
 def test_robot_body_exists_at_start_tile():
     m, model = _model()
@@ -31,7 +31,7 @@ def test_robot_has_velocity_actuators():
 
 def test_robot_start_override():
     m = DefaultHouseMap()
-    model = mujoco.MjModel.from_xml_string(build_mjcf(m, robot_start=(9, 9)))
+    model = compile_model(m, robot_start=(9, 9))
     bid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "robot")
     cx, cy = tile_center(9, 9)
     np.testing.assert_allclose(model.body_pos[bid][:2], [cx, cy], atol=1e-6)
@@ -56,3 +56,9 @@ def test_visual_geoms_do_not_collide():
         gid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, g)
         assert model.geom_contype[gid] == 0
         assert model.geom_conaffinity[gid] == 0
+
+def test_ego_camera_has_realistic_fovy():
+    from homebot3d.constants import EGO_FOVY
+    _, model = _model()
+    cid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, "ego")
+    assert abs(float(model.cam_fovy[cid]) - EGO_FOVY) < 1e-4

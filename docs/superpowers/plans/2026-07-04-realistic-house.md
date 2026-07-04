@@ -103,29 +103,23 @@ def test_door_frames_present():
 
 
 def test_robot_drives_through_doorway_without_stalling():
-    # Living->hallway doorway (row 8, cols 4-6). Start just north of it and
-    # drive south (-y). With thin walls the robot must clear the opening.
+    # Living<->hallway doorway at row 8, cols 4-6. Tile row 8 sits at LARGER y
+    # than the start row 7 (y=(row+0.5)*TILE), so the robot must drive +y to
+    # pass through. Command world-frame +y velocity directly (heading-agnostic)
+    # so the test isolates wall geometry, not the controller.
     m = DefaultHouseMap()
     model = mujoco.MjModel.from_xml_string(build_mjcf(m, robot_start=(5, 7)))
     data = mujoco.MjData(model)
     mujoco.mj_forward(model, data)
     from homebot3d.robot import Robot
     r = Robot(model, data)
+    a_vy = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, "vy")
     y0 = r.y
     for _ in range(400):                 # 4 s at dt=0.01
-        r.apply(np.array([1.0, 0.0]))    # heading points -y at start? drive fwd
+        data.ctrl[a_vy] = 1.0            # +y toward and through the doorway
         mujoco.mj_step(model, data)
     # Robot should have travelled well past the doorway line into the hallway.
-    assert r.y < y0 - 0.9, f"stalled: y0={y0:.3f} y={r.y:.3f}"
-```
-
-Note: the robot spawns facing +x (heading 0). To drive south through the doorway the drive-through test instead relies on turning; simplify by driving the robot with a fixed world-frame command. Replace the loop with a direct velocity command that does not depend on heading:
-
-```python
-    for _ in range(400):
-        data.ctrl[mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, "vx")] = 0.0
-        data.ctrl[mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, "vy")] = -1.0
-        mujoco.mj_step(model, data)
+    assert r.y > y0 + 0.9, f"stalled: y0={y0:.3f} y={r.y:.3f}"
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**

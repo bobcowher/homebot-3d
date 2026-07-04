@@ -1,9 +1,11 @@
 import numpy as np
 import mujoco
 
+from homebot3d.constants import OBS_SIZE
+
 
 class Camera:
-    def __init__(self, model, width=84, height=84):
+    def __init__(self, model, width=OBS_SIZE, height=OBS_SIZE):
         self.width = width
         self.height = height
         self._rgb = mujoco.Renderer(model, height=height, width=width)

@@ -1,12 +1,12 @@
 import numpy as np
 import mujoco
 from homebot3d.maps import DefaultHouseMap
-from homebot3d.world import build_mjcf, tile_center
+from homebot3d.world import compile_model, tile_center
 from homebot3d.robot import Robot
 
 def _sim():
     m = DefaultHouseMap()
-    model = mujoco.MjModel.from_xml_string(build_mjcf(m))
+    model = compile_model(m)
     data = mujoco.MjData(model)
     mujoco.mj_forward(model, data)
     return m, model, data

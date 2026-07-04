@@ -44,6 +44,9 @@ def main():
     p.add_argument("--random-start", action="store_true")
     p.add_argument("--max-steps", type=int, default=100000,
                    help="episode truncation cap; high so free-driving isn't cut short")
+    p.add_argument("--debug-input", action="store_true",
+                   help="log held-key set changes and a per-second W-held ratio "
+                        "to diagnose stop/go input dropout")
     args = p.parse_args()
 
     env = HomeBot3DEnv(goals=tuple(args.goals), map_name=args.map,
@@ -70,8 +73,22 @@ def main():
         glfw.terminate()
         raise SystemExit("Failed to create GLFW window")
     glfw.make_context_current(window)
-    glfw.swap_interval(0)  # no vsync; the timestep sleep below paces the loop
+    glfw.swap_interval(1)  # vsync on: cap the loop to display refresh and show
+    # whole frames. Without it an RTX-class GPU renders ~750 fps to a 60 Hz panel
+    # and the monitor samples mid-swap — tearing that reads as jittery motion.
     glfw.set_key_callback(window, on_key)
+
+    # One physics step per vsynced frame. Because swap_interval(1) pins the frame
+    # period to the display refresh, a single fixed timestep per frame advances
+    # the camera by an EQUAL increment every frame — smooth translation. A
+    # wall-time accumulator instead does 1 step some frames and 2 on others (10 ms
+    # steps vs a ~16.7 ms frame), and each double-step is a visible forward lurch
+    # ("occasional pulses") that rotation hides but forward motion exposes. Match
+    # the timestep to the refresh so one step per frame also runs ~real-time.
+    mode = glfw.get_video_mode(glfw.get_primary_monitor())
+    refresh = mode.refresh_rate if mode and mode.refresh_rate else 60
+    teleop_dt = 1.0 / refresh
+    env.model.opt.timestep = teleop_dt
 
     cam = mujoco.MjvCamera()
     opt = mujoco.MjvOption()
@@ -82,25 +99,38 @@ def main():
         (_pov_camera if state["pov"] else _overview_camera)(env.model, cam)
 
     apply_camera()
-    timestep = env.model.opt.timestep
+    fps_mark, fps_frames = time.time(), 0
+    prev_held = set()          # for --debug-input transition logging
+    w_frames = w_held = 0      # per-second W-held ratio
+    last_xy = (env._robot.x, env._robot.y)   # for per-second distance-moved
 
     while not glfw.window_should_close(window):
-        step_start = time.time()
         glfw.poll_events()
-
         # Poll physical key state for continuous movement (auto-repeat safe).
         held = {ch for key, ch in _KEYMAP.items()
                 if glfw.get_key(window, key) == glfw.PRESS}
-        reward, term, _, _ = env.step_physics(keys_to_action(held))
+        action = keys_to_action(held)
+
+        if args.debug_input:
+            if held != prev_held:
+                print(f"[{time.time():.3f}] held: "
+                      f"{''.join(sorted(prev_held)) or '-'} -> "
+                      f"{''.join(sorted(held)) or '-'}")
+                prev_held = held
+            w_frames += 1
+            w_held += 1 if "w" in held else 0
+
+        reward, term, _, _ = env.step_physics(action)
         if reward > 0:
             print(f"+{reward}")
-
         # Reset only on manual R or genuine termination (all goals reached) —
         # NOT on truncation, which would cut a manual drive short.
         if state["reset"] or term:
             env.reset_world(seed=None)
-            # Model instance changed — free the old GL context, rebuild
-            # scene/context against the new model.
+            # reset_world compiles a fresh model (MJCF timestep 0.01) — re-apply
+            # the refresh-matched teleop timestep, then rebuild the GL context and
+            # scene against the new model instance.
+            env.model.opt.timestep = teleop_dt
             context.free()
             scene = mujoco.MjvScene(env.model, maxgeom=10000)
             context = mujoco.MjrContext(env.model,
@@ -113,11 +143,37 @@ def main():
         mujoco.mjv_updateScene(env.model, env.data, opt, None, cam,
                                mujoco.mjtCatBit.mjCAT_ALL, scene)
         mujoco.mjr_render(viewport, scene, context)
-        glfw.swap_buffers(window)
+        glfw.swap_buffers(window)   # blocks until vblank: paces the loop, yields CPU
 
-        dt = timestep - (time.time() - step_start)
-        if dt > 0:
-            time.sleep(dt)
+        # Effective render FPS once a second: should read ~refresh with vsync on;
+        # a much lower number means a render bottleneck (software GL / heavy scene).
+        fps_frames += 1
+        now = time.time()
+        if now - fps_mark >= 1.0:
+            print(f"render {fps_frames / (now - fps_mark):.0f} fps")
+            if args.debug_input:
+                import math
+                r = env._robot
+                rx, ry = r.x, r.y
+                moved = ((rx - last_xy[0]) ** 2 + (ry - last_xy[1]) ** 2) ** 0.5
+                d = env.data
+                hdg = math.degrees(r.heading) % 360
+                cvx, cvy = float(d.ctrl[r._a_vx]), float(d.ctrl[r._a_vy])
+                # names of every geom robot_body is currently contacting (any prefix)
+                touching = set()
+                for i in range(d.ncon):
+                    c = d.contact[i]
+                    if r._body_geom in (c.geom1, c.geom2):
+                        o = c.geom2 if c.geom1 == r._body_geom else c.geom1
+                        touching.add(mujoco.mj_id2name(env.model,
+                                     mujoco.mjtObj.mjOBJ_GEOM, o) or f"geom{o}")
+                print(f"    W held {w_held}/{w_frames} frames | "
+                      f"pos=({rx:.2f},{ry:.2f}) moved={moved:.3f}m/s hdg={hdg:.0f} | "
+                      f"cmd_v=({cvx:+.2f},{cvy:+.2f}) "
+                      f"touching={sorted(touching) or '-'}")
+                last_xy = (rx, ry)
+                w_frames = w_held = 0
+            fps_mark, fps_frames = now, 0
 
     glfw.terminate()
     env.close()

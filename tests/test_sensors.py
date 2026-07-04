@@ -1,22 +1,22 @@
 import numpy as np
 import mujoco
 from homebot3d.maps import DefaultHouseMap
-from homebot3d.world import build_mjcf
+from homebot3d.world import compile_model
 from homebot3d.robot import Robot
 from homebot3d.sensors import Camera, privileged
 
 def _sim():
     m = DefaultHouseMap()
-    model = mujoco.MjModel.from_xml_string(build_mjcf(m))
+    model = compile_model(m)
     data = mujoco.MjData(model)
     mujoco.mj_forward(model, data)
     return m, model, data
 
 def test_rgb_shape_and_dtype():
     m, model, data = _sim()
-    cam = Camera(model, width=84, height=84)
+    cam = Camera(model, width=128, height=128)
     frame = cam.render_rgb(data)
-    assert frame.shape == (84, 84, 3)
+    assert frame.shape == (128, 128, 3)
     assert frame.dtype == np.uint8
     cam.close()
 
@@ -32,7 +32,7 @@ def test_depth_shape():
     m, model, data = _sim()
     cam = Camera(model)
     d = cam.render_depth(data)
-    assert d.shape == (84, 84)
+    assert d.shape == (128, 128)
     assert d.dtype == np.float32
     cam.close()
 

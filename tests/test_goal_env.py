@@ -7,7 +7,7 @@ def test_dict_obs_structure():
     env = HomeBot3DGoalEnv(goals=("drink",))
     obs, _ = env.reset(seed=0)
     assert set(obs) == {"observation", "achieved_goal", "desired_goal"}
-    assert obs["observation"].shape == (84, 84, 3)
+    assert obs["observation"].shape == (128, 128, 3)
     assert obs["achieved_goal"].shape == (2,)
     assert obs["desired_goal"].shape == (2,)
     env.close()
