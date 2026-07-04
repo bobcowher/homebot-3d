@@ -6,7 +6,8 @@ import mujoco
 from homebot3d.maps import Map, WALL, FLOOR
 from homebot3d.constants import (
     TILE, WALL_HEIGHT, WALL_THICK, ROBOT_RADIUS, ROBOT_HALFHEIGHT,
-    CAMERA_HEIGHT, EGO_FOVY, ROBOT_BODY_HALF, ROBOT_BODY_HALFHEIGHT, WHEEL_RADIUS,
+    CAMERA_HEIGHT, EGO_FOVY, EGO_CAM_BACK, EGO_CAM_RAISE,
+    ROBOT_BODY_HALF, ROBOT_BODY_HALFHEIGHT, WHEEL_RADIUS,
 )
 
 _TEX_DIR = Path(__file__).parent / "assets" / "textures"
@@ -286,7 +287,9 @@ def _robot_body(map: Map, robot_start) -> str:
             rgba="0.1 0.1 0.1 1"/>
       <geom name="robot_caster" type="sphere" {vis} size="0.03"
             pos="{fwd} 0 {-ROBOT_HALFHEIGHT + 0.03}" rgba="0.1 0.1 0.1 1"/>
-      <camera name="ego" pos="{ROBOT_RADIUS} 0 {head_z}" xyaxes="0 -1 0 0 0 1" fovy="{EGO_FOVY}"/>
+      <!-- ego: chase view set back/above the robot so its own body shows at the
+           frame bottom. xyaxes tilts the view down ~12deg (up vector 0.21 0 0.98). -->
+      <camera name="ego" pos="{-EGO_CAM_BACK} 0 {head_z + EGO_CAM_RAISE}" xyaxes="0 -1 0 0.21 0 0.98" fovy="{EGO_FOVY}"/>
     </body>"""
 
 

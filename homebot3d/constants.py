@@ -8,6 +8,9 @@ MAX_ANG = 2.0           # rad/s at action = 1.0
 REACH_RADIUS = 0.75     # metres — goal reached when body centre within this planar distance
 CAMERA_HEIGHT = 0.5         # metres above floor — small-robot sensor head height
 EGO_FOVY = 75.0             # degrees — ego camera vertical field of view
+EGO_CAM_BACK = 0.55         # metres the ego camera sits behind the robot centre
+EGO_CAM_RAISE = 0.20        # metres the ego camera sits above CAMERA_HEIGHT
+                            # (chase view: the robot's own body shows at frame bottom)
 ROBOT_BODY_HALF = 0.12      # torso box half-extent in x and y (metres)
 ROBOT_BODY_HALFHEIGHT = 0.09  # torso box half-height (metres)
 WHEEL_RADIUS = 0.06         # cosmetic wheel radius (metres)
