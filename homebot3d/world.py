@@ -310,7 +310,13 @@ def build_mjcf(map: Map, robot_start=None) -> str:
          tau = mass/kv ~= 24.4/80 ~= 0.3s (was kv=20 -> 1.2s, felt sluggish). -->
     <velocity name="vx" joint="slide_x" kv="80" ctrlrange="-2 2"/>
     <velocity name="vy" joint="slide_y" kv="80" ctrlrange="-2 2"/>
-    <velocity name="wz" joint="yaw" kv="2" ctrlrange="-3 3"/>
+    <!-- wz kv=20 (was 2): a stiff yaw servo holds heading against contact
+         torque. With kv=2 a glancing bump on a doorframe delivered enough
+         angular impulse to spin the robot past 90deg so "forward" drove it
+         into the wall corner — a permanent wedge ("sticking at stop"). kv=20
+         absorbs the impulse (doorway pass-through verified) and also sharpens
+         turning (steady rate ~1.95 vs ~1.1 rad/s); kv>=50 goes unstable. -->
+    <velocity name="wz" joint="yaw" kv="20" ctrlrange="-3 3"/>
   </actuator>
 </mujoco>
 """
