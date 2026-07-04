@@ -1,8 +1,16 @@
+from pathlib import Path
+
+import mujoco
+
 from homebot3d.maps import Map, WALL, FLOOR
 from homebot3d.constants import (
     TILE, WALL_HEIGHT, WALL_THICK, ROBOT_RADIUS, ROBOT_HALFHEIGHT,
     CAMERA_HEIGHT, ROBOT_BODY_HALF, ROBOT_BODY_HALFHEIGHT, WHEEL_RADIUS,
 )
+
+_TEX_DIR = Path(__file__).parent / "assets" / "textures"
+_TEX_FILES = ("floor_wood.png", "floor_tile.png", "wall_paint.png",
+              "wood.png", "fabric.png")
 
 
 def tile_center(col: int, row: int) -> tuple[float, float]:
@@ -14,10 +22,16 @@ def _asset_block() -> str:
   <asset>
     <texture name="sky" type="skybox" builtin="gradient"
              rgb1="0.55 0.7 0.9" rgb2="0.1 0.12 0.2" width="256" height="256"/>
-    <texture name="floortex" type="2d" builtin="checker"
-             rgb1="0.82 0.80 0.76" rgb2="0.70 0.68 0.64" width="512" height="512"/>
-    <material name="floormat" texture="floortex" texrepeat="8 8" reflectance="0.1"/>
-    <material name="wallmat" rgba="0.86 0.86 0.88 1" reflectance="0.05"/>
+    <texture name="floor_wood" type="2d" file="floor_wood.png"/>
+    <texture name="floor_tile" type="2d" file="floor_tile.png"/>
+    <texture name="wall_paint" type="2d" file="wall_paint.png"/>
+    <texture name="wood" type="2d" file="wood.png"/>
+    <texture name="fabric" type="2d" file="fabric.png"/>
+    <material name="floormat" texture="floor_wood" texrepeat="6 4" reflectance="0.05"/>
+    <material name="tilemat"  texture="floor_tile" texrepeat="6 4" reflectance="0.1"/>
+    <material name="wallmat"  texture="wall_paint" texrepeat="4 2" reflectance="0.02"/>
+    <material name="woodmat"  texture="wood"       texrepeat="2 2" reflectance="0.05"/>
+    <material name="fabricmat" texture="fabric"    texrepeat="2 2" reflectance="0.02"/>
   </asset>"""
 
 
@@ -204,3 +218,14 @@ def build_mjcf(map: Map, robot_start=None) -> str:
   </actuator>
 </mujoco>
 """
+
+
+def texture_assets() -> dict[str, bytes]:
+    """Committed texture PNGs as filename -> bytes, for MjModel asset injection."""
+    return {name: (_TEX_DIR / name).read_bytes() for name in _TEX_FILES}
+
+
+def compile_model(map: Map, robot_start=None) -> mujoco.MjModel:
+    """Compile the house MJCF with texture bytes supplied inline (no fs lookup)."""
+    return mujoco.MjModel.from_xml_string(
+        build_mjcf(map, robot_start), texture_assets())

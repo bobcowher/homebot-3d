@@ -1,12 +1,12 @@
 import numpy as np
 import mujoco
 from homebot3d.maps import DefaultHouseMap
-from homebot3d.world import build_mjcf, tile_center
+from homebot3d.world import compile_model, tile_center
 from homebot3d.constants import TILE, WALL_HEIGHT, WALL_THICK
 
 
 def _model():
-    return mujoco.MjModel.from_xml_string(build_mjcf(DefaultHouseMap()))
+    return compile_model(DefaultHouseMap())
 
 
 def _geom_names(model, prefix):
@@ -49,7 +49,7 @@ def test_robot_drives_through_doorway_without_stalling():
     # pass through. Command world-frame +y velocity directly (heading-agnostic)
     # so the test isolates wall geometry, not the controller.
     m = DefaultHouseMap()
-    model = mujoco.MjModel.from_xml_string(build_mjcf(m, robot_start=(5, 7)))
+    model = compile_model(m, robot_start=(5, 7))
     data = mujoco.MjData(model)
     mujoco.mj_forward(model, data)
     from homebot3d.robot import Robot

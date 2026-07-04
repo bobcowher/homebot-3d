@@ -1,15 +1,15 @@
 import mujoco
 from homebot3d.maps import DefaultHouseMap
-from homebot3d.world import build_mjcf
+from homebot3d.world import compile_model
 
 
 def _model():
-    return mujoco.MjModel.from_xml_string(build_mjcf(DefaultHouseMap()))
+    return compile_model(DefaultHouseMap())
 
 
 def test_materials_exist():
     model = _model()
-    for mat in ("floormat", "wallmat"):
+    for mat in ("floormat", "tilemat", "wallmat", "woodmat", "fabricmat"):
         assert mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_MATERIAL, mat) != -1
 
 
