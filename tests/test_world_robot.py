@@ -2,7 +2,7 @@ import numpy as np
 import mujoco
 from homebot3d.maps import DefaultHouseMap
 from homebot3d.world import build_mjcf, tile_center
-from homebot3d.constants import ROBOT_HALFHEIGHT
+from homebot3d.constants import ROBOT_HALFHEIGHT, CAMERA_HEIGHT
 
 def _model(robot_start=None):
     m = DefaultHouseMap()
@@ -35,3 +35,24 @@ def test_robot_start_override():
     bid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "robot")
     cx, cy = tile_center(9, 9)
     np.testing.assert_allclose(model.body_pos[bid][:2], [cx, cy], atol=1e-6)
+
+def test_ego_camera_at_sensor_height():
+    _, model = _model()
+    cid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, "ego")
+    # cam_pos is relative to the robot body origin, which sits at ROBOT_HALFHEIGHT.
+    world_z = model.cam_pos[cid][2] + ROBOT_HALFHEIGHT
+    np.testing.assert_allclose(world_z, CAMERA_HEIGHT, atol=1e-6)
+
+def test_robot_has_visual_detail_geoms():
+    _, model = _model()
+    for g in ("robot_torso", "robot_mast", "robot_head",
+              "robot_wheel_l", "robot_wheel_r"):
+        assert mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, g) != -1
+
+def test_visual_geoms_do_not_collide():
+    _, model = _model()
+    for g in ("robot_torso", "robot_mast", "robot_head", "robot_wedge",
+              "robot_wheel_l", "robot_wheel_r", "robot_caster"):
+        gid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, g)
+        assert model.geom_contype[gid] == 0
+        assert model.geom_conaffinity[gid] == 0

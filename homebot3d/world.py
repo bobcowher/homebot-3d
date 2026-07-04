@@ -1,5 +1,8 @@
 from homebot3d.maps import Map, WALL
-from homebot3d.constants import TILE, WALL_HEIGHT, ROBOT_RADIUS, ROBOT_HALFHEIGHT
+from homebot3d.constants import (
+    TILE, WALL_HEIGHT, ROBOT_RADIUS, ROBOT_HALFHEIGHT,
+    CAMERA_HEIGHT, ROBOT_BODY_HALF, ROBOT_BODY_HALFHEIGHT, WHEEL_RADIUS,
+)
 
 
 def tile_center(col: int, row: int) -> tuple[float, float]:
@@ -44,14 +47,42 @@ def _robot_body(map: Map, robot_start) -> str:
     col, row = robot_start if robot_start is not None else map.robot_start_tile
     cx, cy = tile_center(col, row)
     z = ROBOT_HALFHEIGHT
+
+    base_top = ROBOT_HALFHEIGHT                      # local z of base cylinder top
+    torso_z = base_top + ROBOT_BODY_HALFHEIGHT       # torso box centre (local z)
+    head_z = CAMERA_HEIGHT - ROBOT_HALFHEIGHT        # camera / head centre (local z)
+    mast_bottom = torso_z + ROBOT_BODY_HALFHEIGHT
+    mast_cz = (mast_bottom + head_z) / 2
+    mast_hz = max((head_z - mast_bottom) / 2, 0.01)
+    wheel_z = -ROBOT_HALFHEIGHT + WHEEL_RADIUS
+    fwd = ROBOT_RADIUS - 0.03
+    vis = 'contype="0" conaffinity="0" density="0"'  # visual-only: no mass, no collision
+
     return f"""
     <body name="robot" pos="{cx} {cy} {z}">
       <joint name="slide_x" type="slide" axis="1 0 0"/>
       <joint name="slide_y" type="slide" axis="0 1 0"/>
       <joint name="yaw" type="hinge" axis="0 0 1"/>
       <geom name="robot_body" type="cylinder"
-            size="{ROBOT_RADIUS} {ROBOT_HALFHEIGHT}" rgba="0.2 0.6 0.3 1"/>
-      <camera name="ego" pos="{ROBOT_RADIUS} 0 0.1" xyaxes="0 -1 0 0 0 1"/>
+            size="{ROBOT_RADIUS} {ROBOT_HALFHEIGHT}" rgba="0.25 0.5 0.75 1"/>
+      <geom name="robot_torso" type="box" {vis}
+            size="{ROBOT_BODY_HALF} {ROBOT_BODY_HALF} {ROBOT_BODY_HALFHEIGHT}"
+            pos="0 0 {torso_z}" rgba="0.9 0.9 0.92 1"/>
+      <geom name="robot_mast" type="box" {vis}
+            size="0.02 0.02 {mast_hz}" pos="0 0 {mast_cz}" rgba="0.3 0.3 0.32 1"/>
+      <geom name="robot_head" type="box" {vis}
+            size="0.05 0.06 0.04" pos="0 0 {head_z}" rgba="0.15 0.15 0.17 1"/>
+      <geom name="robot_wedge" type="box" {vis}
+            size="0.05 0.03 0.03" pos="{fwd} 0 {base_top}" rgba="0.95 0.55 0.1 1"/>
+      <geom name="robot_wheel_l" type="cylinder" {vis} zaxis="0 1 0"
+            size="{WHEEL_RADIUS} 0.02" pos="0 {ROBOT_RADIUS} {wheel_z}"
+            rgba="0.1 0.1 0.1 1"/>
+      <geom name="robot_wheel_r" type="cylinder" {vis} zaxis="0 1 0"
+            size="{WHEEL_RADIUS} 0.02" pos="0 {-ROBOT_RADIUS} {wheel_z}"
+            rgba="0.1 0.1 0.1 1"/>
+      <geom name="robot_caster" type="sphere" {vis} size="0.03"
+            pos="{fwd} 0 {-ROBOT_HALFHEIGHT + 0.03}" rgba="0.1 0.1 0.1 1"/>
+      <camera name="ego" pos="{ROBOT_RADIUS} 0 {head_z}" xyaxes="0 -1 0 0 0 1"/>
     </body>"""
 
 
