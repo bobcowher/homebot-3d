@@ -1,30 +1,34 @@
-"""Human play wrapper for HomeBot3DEnv (MuJoCo passive viewer).
+"""Custom GLFW teleop for HomeBot3DEnv — first-person POV with hold-to-move.
 
-Controls: W/S forward/back, A/D turn, R reset, Esc quit.
+Controls: W/S drive fwd/back (held), A/D turn (held), V toggle POV/overview,
+R reset, Esc quit.
 
-The viewer is re-launched against the current env.model / env.data after
-every reset so MuJoCo's passive viewer never renders stale handles.
+Uses its own GLFW/GLX window + MjrContext and steps physics via the env's
+render-less seam (reset_world / step_physics), so it never touches the EGL
+offscreen renderer used for observations.
 """
 import argparse
 import time
-import numpy as np
+import glfw
 import mujoco
-import mujoco.viewer
 from homebot3d.env import HomeBot3DEnv
+from homebot3d.teleop_input import keys_to_action
+
+_KEYMAP = {glfw.KEY_W: "w", glfw.KEY_A: "a", glfw.KEY_S: "s", glfw.KEY_D: "d"}
 
 
-def _frame_camera(model, cam):
-    """Point the free camera at the house center from a 3/4 overview.
-
-    The default free camera already frames the model, but we set it
-    explicitly so every launch starts from a known-good pose regardless of
-    model stats.
-    """
+def _overview_camera(model, cam):
     fid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, "floor")
+    cam.type = mujoco.mjtCamera.mjCAMERA_FREE
     cam.lookat[:] = model.geom_pos[fid]
     cam.distance = 1.5 * model.stat.extent
     cam.azimuth = 90.0
     cam.elevation = -55.0
+
+
+def _pov_camera(model, cam):
+    cam.type = mujoco.mjtCamera.mjCAMERA_FIXED
+    cam.fixedcamid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, "ego")
 
 
 def main():
@@ -36,73 +40,74 @@ def main():
 
     env = HomeBot3DEnv(goals=tuple(args.goals), map_name=args.map,
                        random_start=args.random_start)
+    env.reset_world(seed=None)
 
-    # Outer loop: one iteration per episode / viewer session.
-    # We break out to relaunch the viewer whenever the episode ends or the
-    # user presses R; we exit entirely when the viewer window is closed.
-    quit_requested = False
+    held = set()
+    state = {"reset": False, "pov": True}
 
-    while not quit_requested:
-        env.reset(seed=None)
-        action = np.zeros(2, dtype=np.float32)
-        reset_requested = False
+    def on_key(window, key, scancode, action, mods):
+        if key == glfw.KEY_ESCAPE and action == glfw.PRESS:
+            glfw.set_window_should_close(window, True)
+        elif key == glfw.KEY_R and action == glfw.PRESS:
+            state["reset"] = True
+        elif key == glfw.KEY_V and action == glfw.PRESS:
+            state["pov"] = not state["pov"]
+        elif key in _KEYMAP:
+            if action == glfw.PRESS:
+                held.add(_KEYMAP[key])
+            elif action == glfw.RELEASE:
+                held.discard(_KEYMAP[key])
 
-        def key_cb(keycode):
-            nonlocal action, reset_requested, quit_requested
-            c = chr(keycode) if 0 < keycode < 0x110000 else ""
-            if c in "Ww":
-                action[:] = [1.0, 0.0]
-            elif c in "Ss":
-                action[:] = [-1.0, 0.0]
-            elif c in "Aa":
-                action[:] = [0.0, -1.0]
-            elif c in "Dd":
-                action[:] = [0.0, 1.0]
-            elif c in "Rr":
-                reset_requested = True
-                action[:] = 0
-            else:
-                action[:] = 0
+    if not glfw.init():
+        raise SystemExit("Failed to init GLFW")
+    window = glfw.create_window(1200, 800, "HomeBot3D teleop", None, None)
+    glfw.make_context_current(window)
+    glfw.swap_interval(0)  # no vsync; the timestep sleep below paces the loop
+    glfw.set_key_callback(window, on_key)
 
-        term = trunc = False
-        with mujoco.viewer.launch_passive(env.model, env.data,
-                                          key_callback=key_cb) as v:
-            _frame_camera(env.model, v.cam)
-            while v.is_running():
-                if reset_requested:
-                    # Break to outer loop so viewer is relaunched with fresh
-                    # model/data handles after env.reset().
-                    break
+    cam = mujoco.MjvCamera()
+    opt = mujoco.MjvOption()
+    scene = mujoco.MjvScene(env.model, maxgeom=10000)
+    context = mujoco.MjrContext(env.model, mujoco.mjtFontScale.mjFONTSCALE_150)
 
-                step_start = time.time()
-                _, reward, term, trunc, _ = env.step(action)
-                if reward > 0:
-                    print(f"+{reward}")
-                if term or trunc:
-                    # Episode over — relaunch viewer on next reset.
-                    break
+    def apply_camera():
+        (_pov_camera if state["pov"] else _overview_camera)(env.model, cam)
 
-                v.sync()
+    apply_camera()
+    timestep = env.model.opt.timestep
 
-                # Pace the loop to real time. Without this the sim runs at
-                # thousands of steps/sec, so a max_steps episode truncates in a
-                # fraction of a second — the window appears to flash open/closed
-                # and teleop is impossible. Sleep off the remainder of one
-                # physics timestep.
-                dt = env.model.opt.timestep - (time.time() - step_start)
-                if dt > 0:
-                    time.sleep(dt)
+    while not glfw.window_should_close(window):
+        step_start = time.time()
 
-            # If viewer was closed by the user (not by a reset/episode-end
-            # break), signal the outer loop to exit.
-            if not v.is_running() and not reset_requested and not (term or trunc):
-                quit_requested = True
+        reward, term, trunc, _ = env.step_physics(keys_to_action(held))
+        if reward > 0:
+            print(f"+{reward}")
 
-        # If the viewer was closed while an episode was still running, exit.
-        if not reset_requested and not quit_requested:
-            # episode ended naturally; loop back to reset and relaunch
-            pass
+        if state["reset"] or term or trunc:
+            env.reset_world(seed=None)
+            # Model instance changed — rebuild scene/context and re-apply camera.
+            scene = mujoco.MjvScene(env.model, maxgeom=10000)
+            context = mujoco.MjrContext(env.model,
+                                        mujoco.mjtFontScale.mjFONTSCALE_150)
+            apply_camera()
+            state["reset"] = False
+            held.clear()
+        else:
+            apply_camera()
 
+        w, h = glfw.get_framebuffer_size(window)
+        viewport = mujoco.MjrRect(0, 0, w, h)
+        mujoco.mjv_updateScene(env.model, env.data, opt, None, cam,
+                               mujoco.mjtCatBit.mjCAT_ALL, scene)
+        mujoco.mjr_render(viewport, scene, context)
+        glfw.swap_buffers(window)
+        glfw.poll_events()
+
+        dt = timestep - (time.time() - step_start)
+        if dt > 0:
+            time.sleep(dt)
+
+    glfw.terminate()
     env.close()
 
 
