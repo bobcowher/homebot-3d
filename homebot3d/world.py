@@ -147,8 +147,10 @@ def build_mjcf(map: Map, robot_start=None) -> str:
 {_robot_body(map, robot_start)}
   </worldbody>
   <actuator>
-    <velocity name="vx" joint="slide_x" kv="20" ctrlrange="-2 2"/>
-    <velocity name="vy" joint="slide_y" kv="20" ctrlrange="-2 2"/>
+    <!-- kv tuned so the velocity servo tracks commanded speed promptly:
+         tau = mass/kv ~= 24.4/80 ~= 0.3s (was kv=20 -> 1.2s, felt sluggish). -->
+    <velocity name="vx" joint="slide_x" kv="80" ctrlrange="-2 2"/>
+    <velocity name="vy" joint="slide_y" kv="80" ctrlrange="-2 2"/>
     <velocity name="wz" joint="yaw" kv="2" ctrlrange="-3 3"/>
   </actuator>
 </mujoco>
