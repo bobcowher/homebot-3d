@@ -1,6 +1,6 @@
-from homebot3d.maps import Map, WALL
+from homebot3d.maps import Map, WALL, FLOOR
 from homebot3d.constants import (
-    TILE, WALL_HEIGHT, ROBOT_RADIUS, ROBOT_HALFHEIGHT,
+    TILE, WALL_HEIGHT, WALL_THICK, ROBOT_RADIUS, ROBOT_HALFHEIGHT,
     CAMERA_HEIGHT, ROBOT_BODY_HALF, ROBOT_BODY_HALFHEIGHT, WHEEL_RADIUS,
 )
 
@@ -22,19 +22,67 @@ def _asset_block() -> str:
 
 
 def _wall_geoms(map: Map) -> str:
+    """Thin boundary wall panels.
+
+    For each floor cell, emit a thin panel on every edge shared with a wall
+    cell or the grid border. Panels are WALL_THICK thick on the boundary-normal
+    axis and slightly over-long on their tangent axis so perpendicular panels
+    overlap and close corner gaps. All named wall_{i} so Robot.collided()
+    detects them.
+    """
     rows, cols = map.tiles.shape
-    parts = []
-    hx = hy = TILE / 2
     hz = WALL_HEIGHT / 2
+    thin = WALL_THICK / 2
+    long = TILE / 2 + WALL_THICK / 2      # tangent half-extent with corner overlap
+    parts = []
+    i = 0
+
+    def is_wall(r, c):
+        return (r < 0 or r >= rows or c < 0 or c >= cols
+                or map.tiles[r, c] == WALL)
+
     for r in range(rows):
         for c in range(cols):
-            if map.tiles[r, c] == WALL:
-                cx, cy = tile_center(c, r)
+            if map.tiles[r, c] != FLOOR:
+                continue
+            cx, cy = tile_center(c, r)
+            edges = []
+            if is_wall(r - 1, c):                    # north (smaller y)
+                edges.append((cx, r * TILE, long, thin))
+            if is_wall(r + 1, c):                    # south (larger y)
+                edges.append((cx, (r + 1) * TILE, long, thin))
+            if is_wall(r, c - 1):                    # west (smaller x)
+                edges.append((c * TILE, cy, thin, long))
+            if is_wall(r, c + 1):                    # east (larger x)
+                edges.append(((c + 1) * TILE, cy, thin, long))
+            for (px, py, hx, hy) in edges:
                 parts.append(
-                    f'<geom name="wall_{r}_{c}" type="box" '
-                    f'size="{hx} {hy} {hz}" pos="{cx} {cy} {hz}" '
+                    f'<geom name="wall_{i}" type="box" '
+                    f'size="{hx} {hy} {hz}" pos="{px} {py} {hz}" '
                     f'material="wallmat"/>'
                 )
+                i += 1
+    return "\n".join(parts)
+
+
+def _door_frames(map: Map) -> str:
+    """Cosmetic-but-collidable jamb posts flanking each doorway opening."""
+    hz = WALL_HEIGHT / 2
+    post = WALL_THICK                     # chunkier square footprint than a panel
+    parts = []
+    for i, (axis, line, lo, hi) in enumerate(getattr(map, "doorways", [])):
+        if axis == "h":                   # horizontal wall line, opening cols lo..hi
+            y = (line + 0.5) * TILE
+            centres = [(lo * TILE, y), ((hi + 1) * TILE, y)]
+        else:                             # vertical wall line, opening rows lo..hi
+            x = (line + 0.5) * TILE
+            centres = [(x, lo * TILE), (x, (hi + 1) * TILE)]
+        for j, (px, py) in enumerate(centres):
+            parts.append(
+                f'<geom name="wall_frame_{i}_{j}" type="box" '
+                f'size="{post} {post} {hz}" pos="{px} {py} {hz}" '
+                f'rgba="0.30 0.22 0.14 1"/>'
+            )
     return "\n".join(parts)
 
 
@@ -143,6 +191,7 @@ def build_mjcf(map: Map, robot_start=None) -> str:
     <geom name="floor" type="plane" pos="{fx/2} {fy/2} 0"
           size="{fx/2} {fy/2} 0.1" material="floormat"/>
 {_wall_geoms(map)}
+{_door_frames(map)}
 {_fixture_bodies(map)}
 {_robot_body(map, robot_start)}
   </worldbody>

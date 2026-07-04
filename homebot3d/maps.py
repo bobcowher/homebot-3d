@@ -49,6 +49,15 @@ class DefaultHouseMap(Map):
             "door":     (23, 9),
         }
         self.door_tiles = [(23, 9), (23, 10)]
+        # (axis, line, lo, hi): "h" = horizontal wall line at row=line spanning
+        # columns lo..hi; "v" = vertical wall line at col=line spanning rows lo..hi.
+        self.doorways = [
+            ("v", 11, 4, 5),    # living <-> kitchen
+            ("h", 8, 4, 6),     # living  -> hallway
+            ("h", 8, 14, 16),   # kitchen -> hallway
+            ("h", 11, 10, 12),  # hallway -> bedroom
+            ("v", 23, 9, 10),   # east exit
+        ]
         self.robot_start_tile = (8, 4)
         self._finalize()
 
