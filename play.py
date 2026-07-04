@@ -1,7 +1,13 @@
 """Custom GLFW teleop for HomeBot3DEnv — first-person POV with hold-to-move.
 
-Controls: W/S drive fwd/back (held), A/D turn (held), V toggle POV/overview,
-R reset, Esc quit.
+Controls: W/S drive fwd/back (held), A/D turn left/right (held),
+V toggle POV/overview, R reset, Esc quit.
+
+Movement keys are polled from physical key state each frame (glfw.get_key),
+not reconstructed from press/release events — X11 key auto-repeat delivers
+spurious release/press pairs while a key is held, which would otherwise make
+held-to-move stutter or stall. Discrete actions (R/V/Esc) stay on the key
+callback, where edge-triggering is what we want.
 
 Uses its own GLFW/GLX window + MjrContext and steps physics via the env's
 render-less seam (reset_world / step_physics), so it never touches the EGL
@@ -36,27 +42,26 @@ def main():
     p.add_argument("--goals", nargs="+", default=["trash", "drink", "package"])
     p.add_argument("--map", default="default")
     p.add_argument("--random-start", action="store_true")
+    p.add_argument("--max-steps", type=int, default=100000,
+                   help="episode truncation cap; high so free-driving isn't cut short")
     args = p.parse_args()
 
     env = HomeBot3DEnv(goals=tuple(args.goals), map_name=args.map,
-                       random_start=args.random_start)
+                       random_start=args.random_start, max_steps=args.max_steps)
     env.reset_world(seed=None)
 
-    held = set()
     state = {"reset": False, "pov": True}
 
     def on_key(window, key, scancode, action, mods):
-        if key == glfw.KEY_ESCAPE and action == glfw.PRESS:
+        # Discrete, edge-triggered actions only; movement is polled in the loop.
+        if action != glfw.PRESS:
+            return
+        if key == glfw.KEY_ESCAPE:
             glfw.set_window_should_close(window, True)
-        elif key == glfw.KEY_R and action == glfw.PRESS:
+        elif key == glfw.KEY_R:
             state["reset"] = True
-        elif key == glfw.KEY_V and action == glfw.PRESS:
+        elif key == glfw.KEY_V:
             state["pov"] = not state["pov"]
-        elif key in _KEYMAP:
-            if action == glfw.PRESS:
-                held.add(_KEYMAP[key])
-            elif action == glfw.RELEASE:
-                held.discard(_KEYMAP[key])
 
     if not glfw.init():
         raise SystemExit("Failed to init GLFW")
@@ -81,24 +86,27 @@ def main():
 
     while not glfw.window_should_close(window):
         step_start = time.time()
+        glfw.poll_events()
 
-        reward, term, trunc, _ = env.step_physics(keys_to_action(held))
+        # Poll physical key state for continuous movement (auto-repeat safe).
+        held = {ch for key, ch in _KEYMAP.items()
+                if glfw.get_key(window, key) == glfw.PRESS}
+        reward, term, _, _ = env.step_physics(keys_to_action(held))
         if reward > 0:
             print(f"+{reward}")
 
-        if state["reset"] or term or trunc:
+        # Reset only on manual R or genuine termination (all goals reached) —
+        # NOT on truncation, which would cut a manual drive short.
+        if state["reset"] or term:
             env.reset_world(seed=None)
             # Model instance changed — free the old GL context, rebuild
-            # scene/context against the new model, re-apply camera.
+            # scene/context against the new model.
             context.free()
             scene = mujoco.MjvScene(env.model, maxgeom=10000)
             context = mujoco.MjrContext(env.model,
                                         mujoco.mjtFontScale.mjFONTSCALE_150)
-            apply_camera()
             state["reset"] = False
-            held.clear()
-        else:
-            apply_camera()
+        apply_camera()
 
         w, h = glfw.get_framebuffer_size(window)
         viewport = mujoco.MjrRect(0, 0, w, h)
@@ -106,7 +114,6 @@ def main():
                                mujoco.mjtCatBit.mjCAT_ALL, scene)
         mujoco.mjr_render(viewport, scene, context)
         glfw.swap_buffers(window)
-        glfw.poll_events()
 
         dt = timestep - (time.time() - step_start)
         if dt > 0:
