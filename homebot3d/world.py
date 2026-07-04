@@ -9,6 +9,18 @@ def tile_center(col: int, row: int) -> tuple[float, float]:
     return (col + 0.5) * TILE, (row + 0.5) * TILE
 
 
+def _asset_block() -> str:
+    return """
+  <asset>
+    <texture name="sky" type="skybox" builtin="gradient"
+             rgb1="0.55 0.7 0.9" rgb2="0.1 0.12 0.2" width="256" height="256"/>
+    <texture name="floortex" type="2d" builtin="checker"
+             rgb1="0.82 0.80 0.76" rgb2="0.70 0.68 0.64" width="512" height="512"/>
+    <material name="floormat" texture="floortex" texrepeat="8 8" reflectance="0.1"/>
+    <material name="wallmat" rgba="0.86 0.86 0.88 1" reflectance="0.05"/>
+  </asset>"""
+
+
 def _wall_geoms(map: Map) -> str:
     rows, cols = map.tiles.shape
     parts = []
@@ -21,7 +33,7 @@ def _wall_geoms(map: Map) -> str:
                 parts.append(
                     f'<geom name="wall_{r}_{c}" type="box" '
                     f'size="{hx} {hy} {hz}" pos="{cx} {cy} {hz}" '
-                    f'rgba="0.7 0.7 0.72 1"/>'
+                    f'material="wallmat"/>'
                 )
     return "\n".join(parts)
 
@@ -93,10 +105,14 @@ def build_mjcf(map: Map, robot_start=None) -> str:
     return f"""
 <mujoco model="homebot3d">
   <option timestep="0.01" gravity="0 0 -9.81"/>
+  <visual>
+    <headlight ambient="0.4 0.4 0.4" diffuse="0.6 0.6 0.6" specular="0 0 0"/>
+  </visual>
+{_asset_block()}
   <worldbody>
-    <light pos="{fx/2} {fy/2} 4" dir="0 0 -1"/>
+    <light directional="true" pos="0 0 5" dir="0.2 0.3 -1" diffuse="0.5 0.5 0.5"/>
     <geom name="floor" type="plane" pos="{fx/2} {fy/2} 0"
-          size="{fx/2} {fy/2} 0.1" rgba="0.85 0.82 0.78 1"/>
+          size="{fx/2} {fy/2} 0.1" material="floormat"/>
 {_wall_geoms(map)}
 {_fixture_bodies(map)}
 {_robot_body(map, robot_start)}
