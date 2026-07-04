@@ -2,7 +2,9 @@ import numpy as np
 import mujoco
 from homebot3d.maps import DefaultHouseMap
 from homebot3d.world import compile_model, tile_center
-from homebot3d.constants import ROBOT_HALFHEIGHT, CAMERA_HEIGHT
+from homebot3d.constants import (
+    ROBOT_HALFHEIGHT, CAMERA_HEIGHT, EGO_CAM_BACK, EGO_CAM_RAISE,
+)
 
 def _model(robot_start=None):
     m = DefaultHouseMap()
@@ -36,12 +38,15 @@ def test_robot_start_override():
     cx, cy = tile_center(9, 9)
     np.testing.assert_allclose(model.body_pos[bid][:2], [cx, cy], atol=1e-6)
 
-def test_ego_camera_at_sensor_height():
+def test_ego_camera_chase_pose():
+    # Chase view: set back behind the robot and raised above sensor height so the
+    # robot's own body shows at the frame bottom.
     _, model = _model()
     cid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, "ego")
     # cam_pos is relative to the robot body origin, which sits at ROBOT_HALFHEIGHT.
     world_z = model.cam_pos[cid][2] + ROBOT_HALFHEIGHT
-    np.testing.assert_allclose(world_z, CAMERA_HEIGHT, atol=1e-6)
+    np.testing.assert_allclose(world_z, CAMERA_HEIGHT + EGO_CAM_RAISE, atol=1e-6)
+    np.testing.assert_allclose(model.cam_pos[cid][0], -EGO_CAM_BACK, atol=1e-6)
 
 def test_robot_has_visual_detail_geoms():
     _, model = _model()
