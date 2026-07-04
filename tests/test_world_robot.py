@@ -56,3 +56,9 @@ def test_visual_geoms_do_not_collide():
         gid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, g)
         assert model.geom_contype[gid] == 0
         assert model.geom_conaffinity[gid] == 0
+
+def test_ego_camera_has_realistic_fovy():
+    from homebot3d.constants import EGO_FOVY
+    _, model = _model()
+    cid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, "ego")
+    assert abs(float(model.cam_fovy[cid]) - EGO_FOVY) < 1e-4

@@ -5,7 +5,7 @@ import mujoco
 from homebot3d.maps import Map, WALL, FLOOR
 from homebot3d.constants import (
     TILE, WALL_HEIGHT, WALL_THICK, ROBOT_RADIUS, ROBOT_HALFHEIGHT,
-    CAMERA_HEIGHT, ROBOT_BODY_HALF, ROBOT_BODY_HALFHEIGHT, WHEEL_RADIUS,
+    CAMERA_HEIGHT, EGO_FOVY, ROBOT_BODY_HALF, ROBOT_BODY_HALFHEIGHT, WHEEL_RADIUS,
 )
 
 _TEX_DIR = Path(__file__).parent / "assets" / "textures"
@@ -251,7 +251,7 @@ def _robot_body(map: Map, robot_start) -> str:
             rgba="0.1 0.1 0.1 1"/>
       <geom name="robot_caster" type="sphere" {vis} size="0.03"
             pos="{fwd} 0 {-ROBOT_HALFHEIGHT + 0.03}" rgba="0.1 0.1 0.1 1"/>
-      <camera name="ego" pos="{ROBOT_RADIUS} 0 {head_z}" xyaxes="0 -1 0 0 0 1"/>
+      <camera name="ego" pos="{ROBOT_RADIUS} 0 {head_z}" xyaxes="0 -1 0 0 0 1" fovy="{EGO_FOVY}"/>
     </body>"""
 
 
