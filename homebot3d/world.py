@@ -56,44 +56,53 @@ def _wall_geoms(map: Map) -> str:
     """Thin single-panel walls on each wall tile's centreline.
 
     A 1-tile-thick wall line becomes ONE thin panel centred on the tile rather
-    than two panels on its floor-facing faces. The two-face approach read as a
-    0.5 m-thick wall and, because adjacent cells emitted overlapping coplanar
-    panels, z-fought and flickered as the camera moved. Here each wall tile
-    that borders floor contributes to a centreline panel, and collinear tiles
-    are merged into continuous runs so no two panels share a coplanar face.
-    Panels are WALL_THICK thick, named wall_{i} so Robot.collided() detects them.
+    than two panels on its floor-facing faces (which read as a 0.5 m-thick wall
+    and z-fought where adjacent cells' panels overlapped). Each wall tile that
+    borders floor is classified horizontal- and/or vertical-type; collinear
+    tiles merge into runs so no two panels share a coplanar face.
+
+    Run ends are joined so corners and doorways are clean: at a perpendicular
+    wall (a corner/junction) the panel extends to that wall's centreline (they
+    meet exactly, no gap, no overshoot); at an opening (floor beyond the end)
+    it extends to the tile edge — the doorjamb the frame post sits on. Panels
+    are WALL_THICK thick, named wall_{i} so Robot.collided() detects them.
     """
     rows, cols = map.tiles.shape
     hz = WALL_HEIGHT / 2
     thin = WALL_THICK / 2
-    ext = WALL_THICK / 2                   # extend run ends to close corner gaps
 
     def is_floor(r, c):
         return 0 <= r < rows and 0 <= c < cols and map.tiles[r, c] == FLOOR
 
-    h_lines: dict[int, set] = {}          # row -> cols carrying a horizontal panel
-    v_lines: dict[int, set] = {}          # col -> rows carrying a vertical panel
+    def is_wall(r, c):                     # out-of-bounds (border) counts as wall
+        return not (0 <= r < rows and 0 <= c < cols) or map.tiles[r, c] == WALL
+
+    h_tiles: dict[int, set] = {}          # row -> cols carrying a horizontal panel
+    v_tiles: dict[int, set] = {}          # col -> rows carrying a vertical panel
     for r in range(rows):
         for c in range(cols):
             if map.tiles[r, c] != WALL:
                 continue
             if is_floor(r - 1, c) or is_floor(r + 1, c):
-                h_lines.setdefault(r, set()).add(c)
+                h_tiles.setdefault(r, set()).add(c)
             if is_floor(r, c - 1) or is_floor(r, c + 1):
-                v_lines.setdefault(c, set()).add(r)
+                v_tiles.setdefault(c, set()).add(r)
 
     parts = []
     i = 0
-    for r, cset in sorted(h_lines.items()):
+    for r, cset in sorted(h_tiles.items()):
         cy = (r + 0.5) * TILE
         for c0, c1 in _merge_runs(cset):
-            x0, x1 = c0 * TILE - ext, (c1 + 1) * TILE + ext
+            # perpendicular wall -> meet its centreline; opening -> tile edge
+            x0 = (c0 - 0.5) * TILE if is_wall(r, c0 - 1) else c0 * TILE
+            x1 = (c1 + 1.5) * TILE if is_wall(r, c1 + 1) else (c1 + 1) * TILE
             parts.append(_wall_box(i, (x0 + x1) / 2, cy, (x1 - x0) / 2, thin, hz))
             i += 1
-    for c, rset in sorted(v_lines.items()):
+    for c, rset in sorted(v_tiles.items()):
         cx = (c + 0.5) * TILE
         for r0, r1 in _merge_runs(rset):
-            y0, y1 = r0 * TILE - ext, (r1 + 1) * TILE + ext
+            y0 = (r0 - 0.5) * TILE if is_wall(r0 - 1, c) else r0 * TILE
+            y1 = (r1 + 1.5) * TILE if is_wall(r1 + 1, c) else (r1 + 1) * TILE
             parts.append(_wall_box(i, cx, (y0 + y1) / 2, thin, (y1 - y0) / 2, hz))
             i += 1
     return "\n".join(parts)
