@@ -109,21 +109,27 @@ def _wall_geoms(map: Map) -> str:
 
 
 def _door_frames(map: Map) -> str:
-    """Cosmetic-but-collidable jamb posts flanking each doorway opening."""
+    """Slim dark-wood jamb posts framing each doorway opening.
+
+    Posts match the wall thickness (half = WALL_THICK/2) so they sit flush with
+    the wall faces — no jutting. Each post is offset by its half-width into the
+    opening so it abuts the wall's end face rather than overlapping it; an
+    overlap would put coplanar dark/white faces at the same depth and z-fight.
+    """
     hz = WALL_HEIGHT / 2
-    post = WALL_THICK                     # chunkier square footprint than a panel
+    half = WALL_THICK / 2                  # flush with a wall panel's thickness
     parts = []
     for i, (axis, line, lo, hi) in enumerate(getattr(map, "doorways", [])):
         if axis == "h":                   # horizontal wall line, opening cols lo..hi
             y = (line + 0.5) * TILE
-            centres = [(lo * TILE, y), ((hi + 1) * TILE, y)]
+            centres = [(lo * TILE + half, y), ((hi + 1) * TILE - half, y)]
         else:                             # vertical wall line, opening rows lo..hi
             x = (line + 0.5) * TILE
-            centres = [(x, lo * TILE), (x, (hi + 1) * TILE)]
+            centres = [(x, lo * TILE + half), (x, (hi + 1) * TILE - half)]
         for j, (px, py) in enumerate(centres):
             parts.append(
                 f'<geom name="wall_frame_{i}_{j}" type="box" '
-                f'size="{post} {post} {hz}" pos="{px} {py} {hz}" '
+                f'size="{half} {half} {hz}" pos="{px} {py} {hz}" '
                 f'rgba="0.30 0.22 0.14 1"/>'
             )
     return "\n".join(parts)
