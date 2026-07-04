@@ -8,7 +8,7 @@ def test_short_rollout_headless():
     frames = 0
     for _ in range(50):
         obs, reward, term, trunc, info = env.step(env.action_space.sample())
-        assert obs.shape == (84, 84, 3)
+        assert obs.shape == (128, 128, 3)
         frames += 1
         if term or trunc:
             break

@@ -11,3 +11,4 @@ EGO_FOVY = 75.0             # degrees — ego camera vertical field of view
 ROBOT_BODY_HALF = 0.12      # torso box half-extent in x and y (metres)
 ROBOT_BODY_HALFHEIGHT = 0.09  # torso box half-height (metres)
 WHEEL_RADIUS = 0.06         # cosmetic wheel radius (metres)
+OBS_SIZE = 128              # default egocentric observation width/height (px)

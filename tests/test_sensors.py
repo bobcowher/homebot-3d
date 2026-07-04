@@ -14,9 +14,9 @@ def _sim():
 
 def test_rgb_shape_and_dtype():
     m, model, data = _sim()
-    cam = Camera(model, width=84, height=84)
+    cam = Camera(model, width=128, height=128)
     frame = cam.render_rgb(data)
-    assert frame.shape == (84, 84, 3)
+    assert frame.shape == (128, 128, 3)
     assert frame.dtype == np.uint8
     cam.close()
 
@@ -32,7 +32,7 @@ def test_depth_shape():
     m, model, data = _sim()
     cam = Camera(model)
     d = cam.render_depth(data)
-    assert d.shape == (84, 84)
+    assert d.shape == (128, 128)
     assert d.dtype == np.float32
     cam.close()
 

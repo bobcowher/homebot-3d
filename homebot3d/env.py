@@ -9,7 +9,7 @@ from homebot3d.robot import Robot
 from homebot3d.sensors import Camera, privileged
 from homebot3d.tasks import TaskManager
 from homebot3d.goals import GOAL_TARGETS
-from homebot3d.constants import TILE, ROBOT_RADIUS, REACH_RADIUS
+from homebot3d.constants import TILE, ROBOT_RADIUS, REACH_RADIUS, OBS_SIZE
 
 
 class HomeBot3DEnv(gym.Env):
@@ -17,7 +17,7 @@ class HomeBot3DEnv(gym.Env):
 
     def __init__(self, goals=("trash", "drink", "package"), n_trash=2,
                  max_steps=2000, map_name="default", random_start=False,
-                 width=84, height=84, render_mode=None):
+                 width=OBS_SIZE, height=OBS_SIZE, render_mode=None):
         super().__init__()
         self.goals = list(goals)
         self.n_trash = n_trash

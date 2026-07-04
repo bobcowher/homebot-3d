@@ -2,15 +2,15 @@ import numpy as np
 from homebot3d.env import HomeBot3DEnv
 
 def test_spaces():
-    env = HomeBot3DEnv(width=84, height=84)
-    assert env.observation_space.shape == (84, 84, 3)
+    env = HomeBot3DEnv(width=128, height=128)
+    assert env.observation_space.shape == (128, 128, 3)
     assert env.action_space.shape == (2,)
     env.close()
 
 def test_reset_returns_rgb_obs_only():
     env = HomeBot3DEnv()
     obs, info = env.reset(seed=0)
-    assert obs.shape == (84, 84, 3) and obs.dtype == np.uint8
+    assert obs.shape == (128, 128, 3) and obs.dtype == np.uint8
     assert "privileged" in info               # seam lives in info, not obs
     assert "pose" in info["privileged"]
     env.close()
@@ -19,7 +19,7 @@ def test_step_contract():
     env = HomeBot3DEnv()
     env.reset(seed=0)
     obs, reward, terminated, truncated, info = env.step(env.action_space.sample())
-    assert obs.shape == (84, 84, 3)
+    assert obs.shape == (128, 128, 3)
     assert isinstance(reward, float)
     assert isinstance(terminated, bool) and isinstance(truncated, bool)
     env.close()
@@ -67,6 +67,6 @@ def test_step_physics_no_camera_and_matches_types():
 def test_gym_step_still_returns_obs():
     env = HomeBot3DEnv(goals=("drink",))
     obs, info = env.reset(seed=0)
-    assert obs.shape == (84, 84, 3)
+    assert obs.shape == (128, 128, 3)
     obs2, r, term, trunc, info2 = env.step([0.0, 0.0])
-    assert obs2.shape == (84, 84, 3)
+    assert obs2.shape == (128, 128, 3)
