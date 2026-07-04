@@ -70,12 +70,22 @@ def main():
         glfw.terminate()
         raise SystemExit("Failed to create GLFW window")
     glfw.make_context_current(window)
-    glfw.swap_interval(1)  # vsync on: cap the loop to display refresh so the
-    # window shows whole frames. Without it, an RTX-class GPU renders ~750 fps
-    # to a 60 Hz panel and the monitor samples mid-swap — tearing that reads as
-    # "chunky" motion. The accumulator (below) still advances physics by real
-    # wall-time, feeding 1-2 steps per vsynced frame, so motion stays smooth.
+    glfw.swap_interval(1)  # vsync on: cap the loop to display refresh and show
+    # whole frames. Without it an RTX-class GPU renders ~750 fps to a 60 Hz panel
+    # and the monitor samples mid-swap — tearing that reads as jittery motion.
     glfw.set_key_callback(window, on_key)
+
+    # One physics step per vsynced frame. Because swap_interval(1) pins the frame
+    # period to the display refresh, a single fixed timestep per frame advances
+    # the camera by an EQUAL increment every frame — smooth translation. A
+    # wall-time accumulator instead does 1 step some frames and 2 on others (10 ms
+    # steps vs a ~16.7 ms frame), and each double-step is a visible forward lurch
+    # ("occasional pulses") that rotation hides but forward motion exposes. Match
+    # the timestep to the refresh so one step per frame also runs ~real-time.
+    mode = glfw.get_video_mode(glfw.get_primary_monitor())
+    refresh = mode.refresh_rate if mode and mode.refresh_rate else 60
+    teleop_dt = 1.0 / refresh
+    env.model.opt.timestep = teleop_dt
 
     cam = mujoco.MjvCamera()
     opt = mujoco.MjvOption()
@@ -86,44 +96,31 @@ def main():
         (_pov_camera if state["pov"] else _overview_camera)(env.model, cam)
 
     apply_camera()
-    timestep = env.model.opt.timestep
-    MAX_FRAME = 0.25          # clamp elapsed time so a hitch can't spiral the sim
-    prev = time.time()
-    accumulator = 0.0
-    fps_mark, fps_frames = prev, 0
+    fps_mark, fps_frames = time.time(), 0
 
     while not glfw.window_should_close(window):
-        now = time.time()
-        accumulator += min(now - prev, MAX_FRAME)
-        prev = now
-
         glfw.poll_events()
         # Poll physical key state for continuous movement (auto-repeat safe).
         held = {ch for key, ch in _KEYMAP.items()
                 if glfw.get_key(window, key) == glfw.PRESS}
         action = keys_to_action(held)
 
-        # Advance physics by the real elapsed time in fixed timesteps, instead of
-        # exactly one step per rendered frame. Pinning sim to render cadence made
-        # on-screen speed lurch whenever frame times varied — the "chunky" feel.
-        while accumulator >= timestep:
-            reward, term, _, _ = env.step_physics(action)
-            accumulator -= timestep
-            if reward > 0:
-                print(f"+{reward}")
-            # Reset only on manual R or genuine termination (all goals reached) —
-            # NOT on truncation, which would cut a manual drive short.
-            if state["reset"] or term:
-                env.reset_world(seed=None)
-                # Model instance changed — free the old GL context, rebuild
-                # scene/context against the new model.
-                context.free()
-                scene = mujoco.MjvScene(env.model, maxgeom=10000)
-                context = mujoco.MjrContext(env.model,
-                                            mujoco.mjtFontScale.mjFONTSCALE_150)
-                state["reset"] = False
-                accumulator = 0.0
-                break
+        reward, term, _, _ = env.step_physics(action)
+        if reward > 0:
+            print(f"+{reward}")
+        # Reset only on manual R or genuine termination (all goals reached) —
+        # NOT on truncation, which would cut a manual drive short.
+        if state["reset"] or term:
+            env.reset_world(seed=None)
+            # reset_world compiles a fresh model (MJCF timestep 0.01) — re-apply
+            # the refresh-matched teleop timestep, then rebuild the GL context and
+            # scene against the new model instance.
+            env.model.opt.timestep = teleop_dt
+            context.free()
+            scene = mujoco.MjvScene(env.model, maxgeom=10000)
+            context = mujoco.MjrContext(env.model,
+                                        mujoco.mjtFontScale.mjFONTSCALE_150)
+            state["reset"] = False
         apply_camera()
 
         w, h = glfw.get_framebuffer_size(window)
@@ -131,17 +128,15 @@ def main():
         mujoco.mjv_updateScene(env.model, env.data, opt, None, cam,
                                mujoco.mjtCatBit.mjCAT_ALL, scene)
         mujoco.mjr_render(viewport, scene, context)
-        glfw.swap_buffers(window)
+        glfw.swap_buffers(window)   # blocks until vblank: paces the loop, yields CPU
 
-        # Effective render FPS once a second: distinguishes a render bottleneck
-        # (low fps => scene too heavy / software GL) from a sim-pacing issue.
+        # Effective render FPS once a second: should read ~refresh with vsync on;
+        # a much lower number means a render bottleneck (software GL / heavy scene).
         fps_frames += 1
+        now = time.time()
         if now - fps_mark >= 1.0:
             print(f"render {fps_frames / (now - fps_mark):.0f} fps")
             fps_mark, fps_frames = now, 0
-
-        # No manual sleep: glfw.swap_buffers blocks until vblank (swap_interval
-        # 1), which both paces the loop and yields the CPU.
 
     glfw.terminate()
     env.close()
