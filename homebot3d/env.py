@@ -49,8 +49,7 @@ class HomeBot3DEnv(gym.Env):
             return self._map.robot_start_tile
         return candidates[int(rng.integers(0, len(candidates)))]
 
-    def reset(self, seed=None, options=None):
-        super().reset(seed=seed)
+    def reset_world(self, seed=None):
         rng = np.random.default_rng(seed)
         start = self._sample_start_tile(rng)
         xml = build_mjcf(self._map, robot_start=start)
@@ -58,21 +57,30 @@ class HomeBot3DEnv(gym.Env):
         self.data = mujoco.MjData(self.model)
         mujoco.mj_forward(self.model, self.data)
         self._robot = Robot(self.model, self.data)
-        if self._camera is not None:
-            self._camera.close()
-        self._camera = Camera(self.model, width=self.width, height=self.height)
         self._tasks.reset(self._map, self.n_trash, rng)
         self._steps = 0
-        return self._obs(), self._info()
+        return self._info()
 
-    def step(self, action):
+    def step_physics(self, action):
         self._robot.apply(np.asarray(action, dtype=np.float32))
         mujoco.mj_step(self.model, self.data)
         self._steps += 1
         reward = float(self._tasks.step(self._robot))
-        terminated = self._tasks.is_done()
-        truncated = self._steps >= self.max_steps
-        return self._obs(), reward, terminated, truncated, self._info()
+        terminated = bool(self._tasks.is_done())
+        truncated = bool(self._steps >= self.max_steps)
+        return reward, terminated, truncated, self._info()
+
+    def reset(self, seed=None, options=None):
+        super().reset(seed=seed)
+        info = self.reset_world(seed)
+        if self._camera is not None:
+            self._camera.close()
+        self._camera = Camera(self.model, width=self.width, height=self.height)
+        return self._obs(), info
+
+    def step(self, action):
+        reward, terminated, truncated, info = self.step_physics(action)
+        return self._obs(), reward, terminated, truncated, info
 
     def _goal_xy(self):
         for g in ("drink", "package", "trash"):

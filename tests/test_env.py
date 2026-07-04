@@ -48,3 +48,25 @@ def test_random_start_changes_spawn_but_is_seed_stable():
     o_b, i_b = e.reset(seed=7)
     np.testing.assert_allclose(i_a["privileged"]["pose"], i_b["privileged"]["pose"])
     e.close()
+
+def test_reset_world_creates_no_camera():
+    env = HomeBot3DEnv(goals=("drink",))
+    info = env.reset_world(seed=0)
+    assert env._camera is None
+    assert "privileged" in info
+
+def test_step_physics_no_camera_and_matches_types():
+    env = HomeBot3DEnv(goals=("drink",))
+    env.reset_world(seed=0)
+    reward, term, trunc, info = env.step_physics([0.0, 0.0])
+    assert env._camera is None
+    assert isinstance(reward, float)
+    assert isinstance(term, bool)
+    assert isinstance(trunc, bool)
+
+def test_gym_step_still_returns_obs():
+    env = HomeBot3DEnv(goals=("drink",))
+    obs, info = env.reset(seed=0)
+    assert obs.shape == (84, 84, 3)
+    obs2, r, term, trunc, info2 = env.step([0.0, 0.0])
+    assert obs2.shape == (84, 84, 3)
