@@ -6,6 +6,7 @@ The viewer is re-launched against the current env.model / env.data after
 every reset so MuJoCo's passive viewer never renders stale handles.
 """
 import argparse
+import time
 import numpy as np
 import mujoco.viewer
 from homebot3d.env import HomeBot3DEnv
@@ -57,6 +58,7 @@ def main():
                     # model/data handles after env.reset().
                     break
 
+                step_start = time.time()
                 _, reward, term, trunc, _ = env.step(action)
                 if reward > 0:
                     print(f"+{reward}")
@@ -65,6 +67,15 @@ def main():
                     break
 
                 v.sync()
+
+                # Pace the loop to real time. Without this the sim runs at
+                # thousands of steps/sec, so a max_steps episode truncates in a
+                # fraction of a second — the window appears to flash open/closed
+                # and teleop is impossible. Sleep off the remainder of one
+                # physics timestep.
+                dt = env.model.opt.timestep - (time.time() - step_start)
+                if dt > 0:
+                    time.sleep(dt)
 
             # If viewer was closed by the user (not by a reset/episode-end
             # break), signal the outer loop to exit.
