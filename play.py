@@ -8,8 +8,23 @@ every reset so MuJoCo's passive viewer never renders stale handles.
 import argparse
 import time
 import numpy as np
+import mujoco
 import mujoco.viewer
 from homebot3d.env import HomeBot3DEnv
+
+
+def _frame_camera(model, cam):
+    """Point the free camera at the house center from a 3/4 overview.
+
+    The default free camera already frames the model, but we set it
+    explicitly so every launch starts from a known-good pose regardless of
+    model stats.
+    """
+    fid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, "floor")
+    cam.lookat[:] = model.geom_pos[fid]
+    cam.distance = 1.5 * model.stat.extent
+    cam.azimuth = 90.0
+    cam.elevation = -55.0
 
 
 def main():
@@ -52,6 +67,7 @@ def main():
         term = trunc = False
         with mujoco.viewer.launch_passive(env.model, env.data,
                                           key_callback=key_cb) as v:
+            _frame_camera(env.model, v.cam)
             while v.is_running():
                 if reset_requested:
                     # Break to outer loop so viewer is relaunched with fresh
