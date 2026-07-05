@@ -12,6 +12,8 @@ class Map:
     door_tiles: list
     doorways: list           # [(axis, line, lo, hi)] — drives door-frame posts
     furniture: list          # [(kind, col, row)] — non-goal obstacle pieces
+    pickup_tiles: dict       # {carry_goal: (col,row)} where the item is picked up
+    dropoff_tiles: dict      # {carry_goal: (col,row)} where it is delivered
 
     def _finalize(self):
         mask = self.tiles == FLOOR
@@ -70,6 +72,15 @@ class DefaultHouseMap(Map):
             ("bed",           4, 14),   # bedroom
             ("nightstand",    2, 14),   # bedroom
         ]
+        # Two-phase delivery goals: pick up at source, deliver at target.
+        self.pickup_tiles = {
+            "drink":   self.fixtures["fridge"],    # get a drink from the kitchen
+            "package": self.fixtures["door"],      # a parcel arrives at the door
+        }
+        self.dropoff_tiles = {
+            "drink":   self.fixtures["recliner"],  # hand it to the seated human
+            "package": (16, 4),                    # bring it in to the kitchen table
+        }
         self._finalize()
 
 
