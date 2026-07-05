@@ -84,9 +84,17 @@ def _wall_geoms(map: Map) -> str:
         for c in range(cols):
             if map.tiles[r, c] != WALL:
                 continue
-            if is_floor(r - 1, c) or is_floor(r + 1, c):
+            # A tile carries a horizontal panel only if it's part of a horizontal
+            # wall LINE (a wall neighbour left or right) that faces floor; likewise
+            # a vertical panel needs a wall neighbour above/below. Without the
+            # wall-neighbour test, a doorjamb tile - whose adjacent "floor" is the
+            # opening itself - sprouts a stub panel perpendicular to its own wall
+            # (the 'wings' poking into the room at every doorway).
+            if (is_floor(r - 1, c) or is_floor(r + 1, c)) and \
+               (is_wall(r, c - 1) or is_wall(r, c + 1)):
                 h_tiles.setdefault(r, set()).add(c)
-            if is_floor(r, c - 1) or is_floor(r, c + 1):
+            if (is_floor(r, c - 1) or is_floor(r, c + 1)) and \
+               (is_wall(r - 1, c) or is_wall(r + 1, c)):
                 v_tiles.setdefault(c, set()).add(r)
 
     parts = []
@@ -375,6 +383,11 @@ def _robot_body(map: Map, robot_start) -> str:
       <geom name="cargo_box" type="box" size="0.10 0.10 0.08"
             pos="0 0 {torso_z + ROBOT_BODY_HALFHEIGHT + 0.09}"
             contype="0" conaffinity="0" rgba="0.72 0.55 0.35 0"/>
+      <!-- fpv: true first-person view at the sensor head, mounted at the front of
+           the robot looking forward with a slight (~9deg) downtilt so the floor
+           just ahead (and trash on it) is visible. No setback: the robot's own
+           body is NOT in frame. -->
+      <camera name="fpv" pos="{fwd} 0 {head_z}" xyaxes="0 -1 0 0.15 0 0.99" fovy="{EGO_FOVY}"/>
       <!-- ego: chase view set back/above the robot so its own body shows at the
            frame bottom. xyaxes tilts the view down ~12deg (up vector 0.21 0 0.98). -->
       <camera name="ego" pos="{-EGO_CAM_BACK} 0 {head_z + EGO_CAM_RAISE}" xyaxes="0 -1 0 0.21 0 0.98" fovy="{EGO_FOVY}"/>
@@ -411,10 +424,15 @@ def build_mjcf(map: Map, robot_start=None, trash=None) -> str:
 {_robot_body(map, robot_start)}
   </worldbody>
   <actuator>
-    <!-- kv tuned so the velocity servo tracks commanded speed promptly:
-         tau = mass/kv ~= 24.4/80 ~= 0.3s (was kv=20 -> 1.2s, felt sluggish). -->
-    <velocity name="vx" joint="slide_x" kv="80" ctrlrange="-2 2"/>
-    <velocity name="vy" joint="slide_y" kv="80" ctrlrange="-2 2"/>
+    <!-- kv sets the velocity servo's stiffness: tau = mass/kv ~= 24.4/250 ~= 0.1s.
+         With no floor drag (floor contact is disabled) the servo is the ONLY force
+         on the slide DOFs, so kv changes convergence speed, not top speed (steady
+         v = ctrl for any kv). kv=80 (tau~0.3s) let the body lag and coast ~0.39m
+         after release and slip sideways ~0.5 m/s while turning - the "boat slide".
+         kv=250 cuts coast to ~0.13m and lateral slip to ~0.24 m/s; top speed stays
+         MAX_LIN. Stable at the teleop step (kv*dt/mass = 250/60/24.4 << 2). -->
+    <velocity name="vx" joint="slide_x" kv="250" ctrlrange="-2 2"/>
+    <velocity name="vy" joint="slide_y" kv="250" ctrlrange="-2 2"/>
     <!-- wz kv=20 (was 2): a stiff yaw servo holds heading against contact
          torque. With kv=2 a glancing bump on a doorframe delivered enough
          angular impulse to spin the robot past 90deg so "forward" drove it

@@ -70,6 +70,20 @@ def test_package_pickup_then_deliver():
     env.close()
 
 
+def test_collected_trash_pile_is_hidden():
+    env = HomeBot3DEnv(goals=("trash",), n_trash=2)
+    env.reset_world(seed=0)
+    tile = tuple(env._tasks.trash_positions[0])
+    gids = env._trash_gids[tile]
+    assert gids and all(env.model.geom_rgba[g, 3] == 1.0 for g in gids)  # visible first
+    _teleport(env, *tile)
+    reward, _, _, _ = env.step_physics([0.0, 0.0])
+    assert reward == 1.0
+    assert tile not in set(map(tuple, env._tasks.trash_positions))
+    assert all(env.model.geom_rgba[g, 3] == 0.0 for g in gids), "collected pile must hide"
+    env.close()
+
+
 def test_reset_clears_cargo_alpha():
     env = HomeBot3DEnv(goals=("drink",), n_trash=0)
     env.reset_world(seed=0)

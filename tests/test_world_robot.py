@@ -62,6 +62,16 @@ def test_visual_geoms_do_not_collide():
         assert model.geom_contype[gid] == 0
         assert model.geom_conaffinity[gid] == 0
 
+def test_fpv_camera_present_and_forward():
+    # True first-person camera: exists, sits at/near the front of the robot (x>0,
+    # not set back like the chase cam), roughly at head height.
+    m, model = _model()
+    cid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, "fpv")
+    assert cid != -1
+    assert model.cam_pos[cid][0] > 0.0            # forward of centre, not behind
+    world_z = model.cam_pos[cid][2] + ROBOT_HALFHEIGHT
+    np.testing.assert_allclose(world_z, CAMERA_HEIGHT, atol=1e-6)
+
 def test_cargo_geoms_present_hidden_noncolliding():
     # Carried-item geoms exist, are visual-only, and start hidden (alpha 0);
     # the env raises alpha to 1 while carrying.

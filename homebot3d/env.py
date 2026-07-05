@@ -65,6 +65,15 @@ class HomeBot3DEnv(gym.Env):
             "package": mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, "cargo_box"),
         }
         self._tasks.reset(self._map, self.n_trash, rng, trash=trash)
+        # Map each spawned pile's tile to its geom ids so a collected pile can be
+        # hidden (visual feedback that it was picked up).
+        self._trash_gids = {}
+        for i, tile in enumerate(trash):
+            prefix = f"trash_{i}_"
+            gids = [g for g in range(self.model.ngeom)
+                    if (mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_GEOM, g)
+                        or "").startswith(prefix)]
+            self._trash_gids[tuple(tile)] = gids
         # Clear any leftover cargo visibility so a reset starts with nothing carried.
         for gid in self._cargo_gid.values():
             self.model.geom_rgba[gid, 3] = 0.0
@@ -78,6 +87,12 @@ class HomeBot3DEnv(gym.Env):
         reward = float(self._tasks.step(self._robot))
         for g, gid in self._cargo_gid.items():
             self.model.geom_rgba[gid, 3] = 1.0 if g in self._tasks.carrying else 0.0
+        # Hide any pile that's been collected (no longer in the remaining set).
+        remaining = set(map(tuple, self._tasks.trash_positions))
+        for tile, gids in self._trash_gids.items():
+            if tile not in remaining:
+                for gid in gids:
+                    self.model.geom_rgba[gid, 3] = 0.0
         terminated = bool(self._tasks.is_done())
         truncated = bool(self._steps >= self.max_steps)
         return reward, terminated, truncated, self._info()

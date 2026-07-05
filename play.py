@@ -1,7 +1,7 @@
 """Custom GLFW teleop for HomeBot3DEnv — first-person POV with hold-to-move.
 
 Controls: W/S drive fwd/back (held), A/D turn left/right (held),
-V toggle POV/overview, R reset, Esc quit.
+V cycle view (fpv -> chase -> overview), R reset, Esc quit.
 
 Movement keys are polled from physical key state each frame (glfw.get_key),
 not reconstructed from press/release events — X11 key auto-repeat delivers
@@ -32,9 +32,13 @@ def _overview_camera(model, cam):
     cam.elevation = -55.0
 
 
-def _pov_camera(model, cam):
+def _fixed_camera(model, cam, name):
     cam.type = mujoco.mjtCamera.mjCAMERA_FIXED
-    cam.fixedcamid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, "ego")
+    cam.fixedcamid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, name)
+
+
+# View cycle for the V key: true first-person, then the chase cam, then overview.
+_VIEWS = ("fpv", "chase", "overview")
 
 
 def main():
@@ -53,7 +57,7 @@ def main():
                        random_start=args.random_start, max_steps=args.max_steps)
     env.reset_world(seed=None)
 
-    state = {"reset": False, "pov": True}
+    state = {"reset": False, "view": 0}   # index into _VIEWS; starts on fpv
 
     def on_key(window, key, scancode, action, mods):
         # Discrete, edge-triggered actions only; movement is polled in the loop.
@@ -64,7 +68,7 @@ def main():
         elif key == glfw.KEY_R:
             state["reset"] = True
         elif key == glfw.KEY_V:
-            state["pov"] = not state["pov"]
+            state["view"] = (state["view"] + 1) % len(_VIEWS)
 
     if not glfw.init():
         raise SystemExit("Failed to init GLFW")
@@ -96,7 +100,13 @@ def main():
     context = mujoco.MjrContext(env.model, mujoco.mjtFontScale.mjFONTSCALE_150)
 
     def apply_camera():
-        (_pov_camera if state["pov"] else _overview_camera)(env.model, cam)
+        view = _VIEWS[state["view"]]
+        if view == "overview":
+            _overview_camera(env.model, cam)
+        elif view == "chase":
+            _fixed_camera(env.model, cam, "ego")
+        else:                                  # fpv
+            _fixed_camera(env.model, cam, "fpv")
 
     apply_camera()
     fps_mark, fps_frames = time.time(), 0
