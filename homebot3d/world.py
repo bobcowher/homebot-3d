@@ -394,8 +394,15 @@ def build_mjcf(map: Map, robot_start=None, trash=None) -> str:
 {_asset_block()}
   <worldbody>
     <light directional="true" pos="0 0 5" dir="0.2 0.3 -1" diffuse="0.5 0.5 0.5"/>
+    <!-- Floor is a visual reference plane only (contype/conaffinity 0). The robot
+         has no vertical DOF - its z is pinned by the slide/yaw kinematics - so a
+         floor contact holds nothing up; it only flickers on/off as the cylinder
+         grazes the plane, injecting intermittent friction that made forward drive
+         surge and stall (stick-slip). Disabling the contact makes the velocity
+         servo track its command steadily; walls/fixtures still collide normally. -->
     <geom name="floor" type="plane" pos="{fx/2} {fy/2} 0"
-          size="{fx/2} {fy/2} 0.1" material="floormat"/>
+          size="{fx/2} {fy/2} 0.1" material="floormat"
+          contype="0" conaffinity="0"/>
 {_wall_geoms(map)}
 {_door_frames(map)}
 {_fixture_bodies(map)}
