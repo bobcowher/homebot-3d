@@ -60,10 +60,14 @@ class HomeBot3DEnv(gym.Env):
         self.data = mujoco.MjData(self.model)
         mujoco.mj_forward(self.model, self.data)
         self._robot = Robot(self.model, self.data)
-        self._cargo_gid = {
-            "drink": mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, "cargo_cup"),
-            "package": mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, "cargo_box"),
-        }
+        # Each carry goal owns every geom whose name starts with its item name, so
+        # the held object AND its arm toggle together (cargo_cup + cargo_cup_arm,
+        # cargo_box + cargo_box_arm).
+        def _gids(prefix):
+            return [g for g in range(self.model.ngeom)
+                    if (mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_GEOM, g)
+                        or "").startswith(prefix)]
+        self._cargo_gid = {"drink": _gids("cargo_cup"), "package": _gids("cargo_box")}
         self._tasks.reset(self._map, self.n_trash, rng, trash=trash)
         # Map each spawned pile's tile to its geom ids so a collected pile can be
         # hidden (visual feedback that it was picked up).
@@ -75,8 +79,9 @@ class HomeBot3DEnv(gym.Env):
                         or "").startswith(prefix)]
             self._trash_gids[tuple(tile)] = gids
         # Clear any leftover cargo visibility so a reset starts with nothing carried.
-        for gid in self._cargo_gid.values():
-            self.model.geom_rgba[gid, 3] = 0.0
+        for gids in self._cargo_gid.values():
+            for gid in gids:
+                self.model.geom_rgba[gid, 3] = 0.0
         self._steps = 0
         return self._info()
 
@@ -85,8 +90,10 @@ class HomeBot3DEnv(gym.Env):
         mujoco.mj_step(self.model, self.data)
         self._steps += 1
         reward = float(self._tasks.step(self._robot))
-        for g, gid in self._cargo_gid.items():
-            self.model.geom_rgba[gid, 3] = 1.0 if g in self._tasks.carrying else 0.0
+        for g, gids in self._cargo_gid.items():
+            alpha = 1.0 if g in self._tasks.carrying else 0.0
+            for gid in gids:
+                self.model.geom_rgba[gid, 3] = alpha
         # Hide any pile that's been collected (no longer in the remaining set).
         remaining = set(map(tuple, self._tasks.trash_positions))
         for tile, gids in self._trash_gids.items():

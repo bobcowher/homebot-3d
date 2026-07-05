@@ -41,14 +41,16 @@ def test_drink_pickup_then_deliver_rewards_and_cargo_toggle():
     assert reward == 1.0
     assert not terminated
     assert _cargo_alpha(env, "cargo_cup") == 1.0
+    assert _cargo_alpha(env, "cargo_cup_arm") == 1.0   # the holding arm shows too
     assert env._goal_xy() == tile_center(*m.dropoff_tiles["drink"])
 
-    # Reach the target → +1, delivered, cup hidden again, done.
+    # Reach the target → +1, delivered, cup+arm hidden again, done.
     _teleport(env, *m.dropoff_tiles["drink"])
     reward, terminated, _, _ = env.step_physics([0.0, 0.0])
     assert reward == 1.0
     assert terminated
     assert _cargo_alpha(env, "cargo_cup") == 0.0
+    assert _cargo_alpha(env, "cargo_cup_arm") == 0.0
     env.close()
 
 

@@ -375,14 +375,24 @@ def _robot_body(map: Map, robot_start) -> str:
             rgba="0.1 0.1 0.1 1"/>
       <geom name="robot_caster" type="sphere" {vis} size="0.03"
             pos="{fwd} 0 {-ROBOT_HALFHEIGHT + 0.03}" rgba="0.1 0.1 0.1 1"/>
-      <!-- carried items: shown (alpha 1) only while carrying; env toggles rgba at
-           runtime. Visual-only (cargo_ prefix is ignored by Robot.collided()). -->
-      <geom name="cargo_cup" type="cylinder" size="0.04 0.055"
-            pos="0.09 0.05 {torso_z + ROBOT_BODY_HALFHEIGHT + 0.06}"
-            contype="0" conaffinity="0" rgba="0.90 0.90 0.95 0"/>
-      <geom name="cargo_box" type="box" size="0.10 0.10 0.08"
-            pos="0 0 {torso_z + ROBOT_BODY_HALFHEIGHT + 0.09}"
-            contype="0" conaffinity="0" rgba="0.72 0.55 0.35 0"/>
+      <!-- Carried items, each held in an arm extended out in front of the robot
+           and a little down. Shown (alpha 1) only while carrying that item; the
+           env toggles rgba per goal at runtime (every geom whose name starts with
+           the item's name flips together, so the arm shows with its object).
+           Visual-only (cargo_ prefix is ignored by Robot.collided()). Drink =
+           red can in the left arm; package = box in the right arm. -->
+      <geom name="cargo_cup_arm" type="capsule" contype="0" conaffinity="0"
+            fromto="0.10 0.11 0.26 0.25 0.10 0.17" size="0.028"
+            rgba="0.30 0.32 0.36 0"/>
+      <geom name="cargo_cup" type="cylinder" size="0.033 0.05"
+            pos="0.28 0.10 0.18" contype="0" conaffinity="0"
+            rgba="0.80 0.10 0.12 0"/>
+      <geom name="cargo_box_arm" type="capsule" contype="0" conaffinity="0"
+            fromto="0.10 -0.11 0.26 0.25 -0.10 0.17" size="0.028"
+            rgba="0.30 0.32 0.36 0"/>
+      <geom name="cargo_box" type="box" size="0.075 0.075 0.065"
+            pos="0.29 -0.10 0.17" contype="0" conaffinity="0"
+            rgba="0.72 0.55 0.35 0"/>
       <!-- fpv: realistic onboard camera. Mounted ON the head (not hovering out
            front), pulled back over the torso and tilted down ~17deg so it sees
            the floor/trash ahead AND a sliver of the robot's own front chassis at

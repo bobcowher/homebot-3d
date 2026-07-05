@@ -83,15 +83,22 @@ def test_fpv_camera_present_and_mounted_on_body():
     np.testing.assert_allclose(world_z, CAMERA_HEIGHT, atol=1e-6)
 
 def test_cargo_geoms_present_hidden_noncolliding():
-    # Carried-item geoms exist, are visual-only, and start hidden (alpha 0);
-    # the env raises alpha to 1 while carrying.
+    # Carried-item geoms (held objects + their arms) exist, are visual-only, and
+    # start hidden (alpha 0); the env raises alpha to 1 while carrying.
     _, model = _model()
-    for g in ("cargo_cup", "cargo_box"):
+    for g in ("cargo_cup", "cargo_cup_arm", "cargo_box", "cargo_box_arm"):
         gid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, g)
         assert gid != -1, f"missing {g}"
         assert model.geom_contype[gid] == 0
         assert model.geom_conaffinity[gid] == 0
         assert model.geom_rgba[gid, 3] == 0.0
+
+def test_drink_can_is_red():
+    # The drink is a coke-red can: strong red, low green/blue.
+    _, model = _model()
+    gid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, "cargo_cup")
+    r, g, b = model.geom_rgba[gid, 0], model.geom_rgba[gid, 1], model.geom_rgba[gid, 2]
+    assert r > 0.6 and g < 0.3 and b < 0.3, f"drink can not red: {(r, g, b)}"
 
 def test_ego_camera_has_realistic_fovy():
     from homebot3d.constants import EGO_FOVY
