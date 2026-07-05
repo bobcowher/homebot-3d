@@ -144,6 +144,55 @@ def _door_frames(map: Map) -> str:
     return "\n".join(parts)
 
 
+def _yard_geoms(map: Map) -> str:
+    """The world outside the east front door: an open door leaf, front steps down
+    to a lawn, and a translucent storm-door across the opening. The storm door is
+    a `wall_` geom so it collides — the robot sees the yard but can't drive out
+    (view-only, matching the 2D env's solid lawn). Everything else is visual-only.
+    Keyed off the "door" fixture tile; the opening runs +y two tiles and the yard
+    lies to +x (east) of the wall.
+    """
+    if "door" not in getattr(map, "fixtures", {}):
+        return ""
+    col, row = map.fixtures["door"]
+    wx = (col + 0.5) * TILE          # wall centreline x (11.75)
+    ex = (col + 1) * TILE            # east face of the wall / lawn start (12.0)
+    yc = (row + 1) * TILE            # centre of the 2-tile opening (5.0)
+    vis = 'contype="0" conaffinity="0"'
+    return "\n".join([
+        # low gate across the opening: tall enough (0.30 m) to stop the floor robot,
+        # low enough to see the yard over it. `wall_` so it collides (view-only
+        # lawn — the robot can't drive out).
+        f'<geom name="wall_gate" type="box" size="0.03 0.47 0.15" '
+        f'pos="{wx + 0.03} {yc} 0.15" rgba="0.34 0.26 0.18 1"/>',
+        # grass lawn just above floor level, east of the door and out past the edge.
+        f'<geom name="yard_lawn" type="box" {vis} size="2.0 3.2 0.01" '
+        f'pos="{ex + 2.0} {yc} 0.012" rgba="0.42 0.58 0.30 1"/>',
+        # stone stoop / front step on the threshold, where the parcel is left.
+        f'<geom name="yard_stoop" type="box" {vis} size="0.25 0.5 0.012" '
+        f'pos="{wx} {yc} 0.013" rgba="0.62 0.60 0.56 1"/>',
+        # open front door leaf, swung outward onto the lawn along the north jamb.
+        f'<geom name="yard_door_leaf" type="box" {vis} size="0.30 0.03 0.5" '
+        f'pos="{ex + 0.30} {yc - 0.47} 0.5" material="woodmat"/>',
+    ])
+
+
+def _package_geom(map: Map) -> str:
+    """A cardboard parcel sitting on the stoop just inside the doorway (reachable
+    from the hallway). `package_` prefix is ignored by Robot.collided(); the env
+    shows it while the package awaits pickup and hides it once carried."""
+    if "door" not in getattr(map, "fixtures", {}):
+        return ""
+    cx, cy = tile_center(*map.fixtures["door"])
+    px, py = cx - 0.05, cy + 0.15
+    return (
+        f'<geom name="package_parcel" type="box" size="0.11 0.11 0.09" '
+        f'pos="{px} {py} 0.09" contype="0" conaffinity="0" rgba="0.74 0.57 0.37 1"/>'
+        f'<geom name="package_tape" type="box" size="0.115 0.02 0.005" '
+        f'pos="{px} {py} 0.181" contype="0" conaffinity="0" rgba="0.62 0.46 0.29 1"/>'
+    )
+
+
 def _seated_human() -> str:
     """A capsule-based seated human, geoms local to the recliner body (facing +y).
 
@@ -213,11 +262,11 @@ def _furniture_geoms(name: str) -> str:
             + _seated_human()
         )
     if name == "door":
+        # Just a doormat on the threshold; the doorway opening, open leaf, steps,
+        # lawn and storm-door barrier are built by _yard_geoms at world level.
         return (
-            f'<geom name="fixture_door_panel" type="box" size="0.28 0.05 0.5" '
-            f'pos="0 0 0.5" material="woodmat"/>'
-            f'<geom name="fixture_door_knob" type="sphere" size="0.03" '
-            f'pos="0.18 0.06 0.5" rgba="0.85 0.7 0.2 1"/>'
+            f'<geom name="fixture_door_mat" type="box" size="0.16 0.24 0.006" '
+            f'pos="0 0.25 0.006" rgba="0.32 0.27 0.22 1"/>'
         )
     # Fallback: a plain box for any other fixture name.
     return (
@@ -448,6 +497,8 @@ def build_mjcf(map: Map, robot_start=None, trash=None) -> str:
           contype="0" conaffinity="0"/>
 {_wall_geoms(map)}
 {_door_frames(map)}
+{_yard_geoms(map)}
+{_package_geom(map)}
 {_fixture_bodies(map)}
 {_furniture_bodies(map)}
 {_trash_geoms(trash)}

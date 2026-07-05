@@ -4,6 +4,8 @@ from typing import Optional, Type
 
 FLOOR = 0
 WALL = 1
+LAWN = 2   # outside ground beyond the front door: rendered as grass, no wall
+           # panels, and not a valid floor tile (robot/trash never spawn there)
 
 
 class Map:
@@ -48,6 +50,7 @@ class DefaultHouseMap(Map):
         t[11, 10:13] = FLOOR       # hallway->bedroom
         t[12:17, 1:23] = FLOOR     # bedroom
         t[9:11, 23] = FLOOR        # east doorway to outside
+        t[:, 24:27] = LAWN         # outside lawn beyond the front door (view-only)
         self.tiles = t
         self.fixtures = {
             "fridge":   (19, 1),

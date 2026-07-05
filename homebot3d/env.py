@@ -68,6 +68,8 @@ class HomeBot3DEnv(gym.Env):
                     if (mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_GEOM, g)
                         or "").startswith(prefix)]
         self._cargo_gid = {"drink": _gids("cargo_cup"), "package": _gids("cargo_box")}
+        # The parcel waiting on the doorstep (shown until the robot picks it up).
+        self._package_gid = _gids("package_")
         self._tasks.reset(self._map, self.n_trash, rng, trash=trash)
         # Map each spawned pile's tile to its geom ids so a collected pile can be
         # hidden (visual feedback that it was picked up).
@@ -82,8 +84,16 @@ class HomeBot3DEnv(gym.Env):
         for gids in self._cargo_gid.values():
             for gid in gids:
                 self.model.geom_rgba[gid, 3] = 0.0
+        self._update_package_visibility()
         self._steps = 0
         return self._info()
+
+    def _update_package_visibility(self):
+        # The doorstep parcel shows while the package still awaits pickup.
+        present = ("package" in self.goals
+                   and self._tasks.phase.get("package") == "seek_source")
+        for gid in self._package_gid:
+            self.model.geom_rgba[gid, 3] = 1.0 if present else 0.0
 
     def step_physics(self, action):
         self._robot.apply(np.asarray(action, dtype=np.float32))
@@ -100,6 +110,7 @@ class HomeBot3DEnv(gym.Env):
             if tile not in remaining:
                 for gid in gids:
                     self.model.geom_rgba[gid, 3] = 0.0
+        self._update_package_visibility()
         terminated = bool(self._tasks.is_done())
         truncated = bool(self._steps >= self.max_steps)
         return reward, terminated, truncated, self._info()

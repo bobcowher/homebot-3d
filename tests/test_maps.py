@@ -1,5 +1,5 @@
 import numpy as np
-from homebot3d.maps import MAP_REGISTRY, FLOOR, WALL, DefaultHouseMap
+from homebot3d.maps import MAP_REGISTRY, FLOOR, WALL, LAWN, DefaultHouseMap
 
 def test_default_map_registered():
     assert MAP_REGISTRY["default"] is DefaultHouseMap
@@ -7,8 +7,11 @@ def test_default_map_registered():
 def test_default_map_shape_and_border_walls():
     m = DefaultHouseMap()
     assert m.tiles.shape == (18, 27)
-    assert (m.tiles[0, :] == WALL).all()       # top border all wall
-    assert (m.tiles[-1, :] == WALL).all()       # bottom border all wall
+    # Border is wall everywhere except the east lawn strip (cols 24-26), which
+    # is open ground beyond the front door and carries no wall panels.
+    assert (m.tiles[0, :24] == WALL).all()       # top border wall (interior)
+    assert (m.tiles[-1, :24] == WALL).all()      # bottom border wall (interior)
+    assert (m.tiles[:, 24:] == LAWN).all()       # east strip is lawn, not wall
 
 def test_fixtures_are_on_valid_coordinates():
     m = DefaultHouseMap()

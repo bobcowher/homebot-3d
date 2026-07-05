@@ -33,6 +33,12 @@ def test_walls_exist_and_are_thin():
         sx, sy, sz = model.geom_size[gid]
         # One planar axis is thin (a wall panel or a square jamb post).
         assert min(sx, sy) <= WALL_THICK + 1e-6
+        # The front-door gate is a deliberately low collidable barrier (see
+        # yard build) — it keeps the robot inside without blocking the view of
+        # the yard, so it is shorter than a full wall.
+        if name == "wall_gate":
+            assert sz < WALL_HEIGHT / 2
+            continue
         np.testing.assert_allclose(sz, WALL_HEIGHT / 2, atol=1e-6)
 
 
