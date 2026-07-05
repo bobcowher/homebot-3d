@@ -311,6 +311,19 @@ def _furniture_piece(kind: str, idx: int) -> str:
             f'<geom name="{p}_leg" type="box" size="0.30 0.30 0.16" '
             f'pos="0 0 0.16" material="woodmat"/>'
         )
+    if kind == "sink":
+        # Counter-height base cabinet with a recessed steel basin and a faucet —
+        # matches the counter footprint so the two read as one continuous run.
+        return (
+            f'<geom name="{p}_base" type="box" size="0.5 0.22 0.40" '
+            f'pos="0 0 0.40" material="woodmat"/>'
+            f'<geom name="{p}_top" type="box" size="0.5 0.22 0.02" '
+            f'pos="0 0 0.42" material="tilemat"/>'
+            f'<geom name="{p}_basin" type="box" size="0.18 0.14 0.03" '
+            f'pos="0 0 0.45" rgba="0.60 0.62 0.64 1"/>'
+            f'<geom name="{p}_faucet" type="cylinder" size="0.02 0.09" '
+            f'pos="0 -0.12 0.54" rgba="0.74 0.75 0.77 1"/>'
+        )
     if kind == "bed":
         return (
             f'<geom name="{p}_mattress" type="box" size="0.5 0.5 0.12" '

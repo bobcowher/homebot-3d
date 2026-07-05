@@ -72,12 +72,15 @@ class DefaultHouseMap(Map):
         # the north wall — a bachelor watching a movie. Keeping the setup against
         # the north wall leaves the south (row-8) doorway clear. No sofa.
         self.fixture_euler = {"recliner": math.pi}
-        # (kind, col, row) — non-goal obstacle furniture, one-body each.
+        # (kind, col, row) — non-goal obstacle furniture, one-body each. Layout
+        # mirrors the 2D DefaultHouseMap: TV and side table in the living room,
+        # sink+counter+fridge along the kitchen's north wall. The bed and
+        # nightstand furnish the bedroom (a 3D-only touch the 2D map lacks).
         self.furniture = [
-            ("tv",            5, 2),    # living — north wall, faces the human (+y)
-            ("coffee_table",  5, 3),    # living — between recliner and TV
-            ("counter",      20, 3),    # kitchen
-            ("kitchen_table",16, 4),    # kitchen
+            ("tv",            5,  1),   # living — north wall, faces the human (+y)
+            ("coffee_table",  3,  5),   # living — side table west of the recliner
+            ("sink",         15,  1),   # kitchen — north wall
+            ("counter",      17,  1),   # kitchen — north wall, sink <-> fridge
             ("bed",           4, 14),   # bedroom
             ("nightstand",    2, 14),   # bedroom
         ]
