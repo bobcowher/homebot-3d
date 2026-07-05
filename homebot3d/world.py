@@ -367,6 +367,14 @@ def _robot_body(map: Map, robot_start) -> str:
             rgba="0.1 0.1 0.1 1"/>
       <geom name="robot_caster" type="sphere" {vis} size="0.03"
             pos="{fwd} 0 {-ROBOT_HALFHEIGHT + 0.03}" rgba="0.1 0.1 0.1 1"/>
+      <!-- carried items: shown (alpha 1) only while carrying; env toggles rgba at
+           runtime. Visual-only (cargo_ prefix is ignored by Robot.collided()). -->
+      <geom name="cargo_cup" type="cylinder" size="0.04 0.055"
+            pos="0.09 0.05 {torso_z + ROBOT_BODY_HALFHEIGHT + 0.06}"
+            contype="0" conaffinity="0" rgba="0.90 0.90 0.95 0"/>
+      <geom name="cargo_box" type="box" size="0.10 0.10 0.08"
+            pos="0 0 {torso_z + ROBOT_BODY_HALFHEIGHT + 0.09}"
+            contype="0" conaffinity="0" rgba="0.72 0.55 0.35 0"/>
       <!-- ego: chase view set back/above the robot so its own body shows at the
            frame bottom. xyaxes tilts the view down ~12deg (up vector 0.21 0 0.98). -->
       <camera name="ego" pos="{-EGO_CAM_BACK} 0 {head_z + EGO_CAM_RAISE}" xyaxes="0 -1 0 0.21 0 0.98" fovy="{EGO_FOVY}"/>

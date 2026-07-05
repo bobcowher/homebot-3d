@@ -8,7 +8,6 @@ from homebot3d.world import compile_model, tile_center
 from homebot3d.robot import Robot
 from homebot3d.sensors import Camera, privileged
 from homebot3d.tasks import TaskManager
-from homebot3d.goals import GOAL_TARGETS
 from homebot3d.constants import TILE, ROBOT_RADIUS, REACH_RADIUS, OBS_SIZE
 
 
@@ -61,7 +60,14 @@ class HomeBot3DEnv(gym.Env):
         self.data = mujoco.MjData(self.model)
         mujoco.mj_forward(self.model, self.data)
         self._robot = Robot(self.model, self.data)
+        self._cargo_gid = {
+            "drink": mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, "cargo_cup"),
+            "package": mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, "cargo_box"),
+        }
         self._tasks.reset(self._map, self.n_trash, rng, trash=trash)
+        # Clear any leftover cargo visibility so a reset starts with nothing carried.
+        for gid in self._cargo_gid.values():
+            self.model.geom_rgba[gid, 3] = 0.0
         self._steps = 0
         return self._info()
 
@@ -70,6 +76,8 @@ class HomeBot3DEnv(gym.Env):
         mujoco.mj_step(self.model, self.data)
         self._steps += 1
         reward = float(self._tasks.step(self._robot))
+        for g, gid in self._cargo_gid.items():
+            self.model.geom_rgba[gid, 3] = 1.0 if g in self._tasks.carrying else 0.0
         terminated = bool(self._tasks.is_done())
         truncated = bool(self._steps >= self.max_steps)
         return reward, terminated, truncated, self._info()
@@ -88,12 +96,13 @@ class HomeBot3DEnv(gym.Env):
 
     def _goal_xy(self):
         for g in ("drink", "package", "trash"):
-            if g in self.goals:
-                target = GOAL_TARGETS[g]
-                if target == "trash" and self._tasks.trash_positions:
+            if g not in self.goals:
+                continue
+            if g == "trash":
+                if self._tasks.trash_positions:
                     return tile_center(*self._tasks.trash_positions[0])
-                if target != "trash":
-                    return tile_center(*self._map.fixtures[target])
+                continue
+            return self._tasks.current_goal_xy(g)
         return (self._robot.x, self._robot.y)
 
     def _obs(self):

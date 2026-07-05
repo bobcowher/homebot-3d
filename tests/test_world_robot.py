@@ -62,6 +62,17 @@ def test_visual_geoms_do_not_collide():
         assert model.geom_contype[gid] == 0
         assert model.geom_conaffinity[gid] == 0
 
+def test_cargo_geoms_present_hidden_noncolliding():
+    # Carried-item geoms exist, are visual-only, and start hidden (alpha 0);
+    # the env raises alpha to 1 while carrying.
+    _, model = _model()
+    for g in ("cargo_cup", "cargo_box"):
+        gid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, g)
+        assert gid != -1, f"missing {g}"
+        assert model.geom_contype[gid] == 0
+        assert model.geom_conaffinity[gid] == 0
+        assert model.geom_rgba[gid, 3] == 0.0
+
 def test_ego_camera_has_realistic_fovy():
     from homebot3d.constants import EGO_FOVY
     _, model = _model()

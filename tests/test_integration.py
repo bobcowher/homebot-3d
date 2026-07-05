@@ -21,8 +21,16 @@ def test_driving_toward_recliner_eventually_rewards():
     # Control law: compute heading error as (goal_bearing - robot_heading), normalised
     # to [-pi, pi], so the robot converges to pointing at the goal rather than spinning
     # at a constant angular velocity proportional to the raw world-frame bearing.
+    #
+    # The drink goal is now two-phase (pick up at the far fridge, deliver to the
+    # recliner). A straight-line controller can't navigate the cross-house pickup
+    # leg, so we put the robot in the carrying/deliver phase up front: goal_vec then
+    # points at the in-room recliner and reaching it fires the +1 delivery reward.
     env = HomeBot3DEnv(goals=("drink",), max_steps=1500, random_start=False)
     _, info = env.reset(seed=0)
+    env._tasks.phase["drink"] = "seek_target"
+    env._tasks.carrying.add("drink")
+    info = env._info()          # recompute goal_vec now that we're seeking the target
     got_reward = False
     for _ in range(1500):
         gx, gy = info["privileged"]["goal_vec"]
