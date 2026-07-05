@@ -9,11 +9,13 @@ def _dist(ax, ay, bx, by):
 
 
 class TaskManager:
+    CARRY_GOALS = ("drink", "package")
+
     def __init__(self, goals):
         self.goals = set(goals)
         self.trash_positions = []
-        self.drink_done = False
-        self.package_done = False
+        self.phase = {}        # carry_goal -> "seek_source" | "seek_target" | "done"
+        self.carrying = set()  # carry_goals currently held (drives the cargo visual)
 
     def reset(self, map: Map, n_trash, rng, trash=None):
         # trash positions are spawned by the env before model compile (so they can
@@ -26,8 +28,8 @@ class TaskManager:
         else:
             self.trash_positions = map.spawn_trash(
                 n_trash, rng, exclude=list(map.fixtures.values()))
-        self.drink_done = False
-        self.package_done = False
+        self.phase = {g: "seek_source" for g in self.CARRY_GOALS if g in self.goals}
+        self.carrying = set()
 
     def step(self, robot) -> float:
         reward = 0.0
@@ -40,27 +42,39 @@ class TaskManager:
                 else:
                     remaining.append((c, r))
             self.trash_positions = remaining
-        if "drink" in self.goals and not self.drink_done:
-            gx, gy = tile_center(*self._map.fixtures["recliner"])
-            if _dist(robot.x, robot.y, gx, gy) <= REACH_RADIUS:
-                self.drink_done = True
-                reward += 1.0
-        if "package" in self.goals and not self.package_done:
-            gx, gy = tile_center(*self._map.fixtures["door"])
-            if _dist(robot.x, robot.y, gx, gy) <= REACH_RADIUS:
-                self.package_done = True
-                reward += 1.0
+        for g in self.CARRY_GOALS:
+            if g not in self.goals:
+                continue
+            if self.phase[g] == "seek_source":
+                sx, sy = tile_center(*self._map.pickup_tiles[g])
+                if _dist(robot.x, robot.y, sx, sy) <= REACH_RADIUS:
+                    self.phase[g] = "seek_target"
+                    self.carrying.add(g)
+                    reward += 1.0
+            elif self.phase[g] == "seek_target":
+                tx, ty = tile_center(*self._map.dropoff_tiles[g])
+                if _dist(robot.x, robot.y, tx, ty) <= REACH_RADIUS:
+                    self.phase[g] = "done"
+                    self.carrying.discard(g)
+                    reward += 1.0
         return reward
 
     def is_done(self) -> bool:
         trash = "trash" not in self.goals or not self.trash_positions
-        drink = "drink" not in self.goals or self.drink_done
-        pkg = "package" not in self.goals or self.package_done
-        return trash and drink and pkg
+        carry = all(self.phase.get(g) == "done"
+                    for g in self.CARRY_GOALS if g in self.goals)
+        return trash and carry
+
+    def current_goal_xy(self, goal):
+        """Phase-aware objective for a carry goal: source until picked up, else target."""
+        if self.phase.get(goal) == "seek_source":
+            return tile_center(*self._map.pickup_tiles[goal])
+        return tile_center(*self._map.dropoff_tiles[goal])
 
     def get_info(self, robot) -> dict:
         return {
             "trash_remaining": len(self.trash_positions),
-            "drink_done": self.drink_done,
-            "package_done": self.package_done,
+            "carrying": sorted(self.carrying),
+            "drink_phase": self.phase.get("drink"),
+            "package_phase": self.phase.get("package"),
         }
