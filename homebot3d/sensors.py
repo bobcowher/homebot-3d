@@ -13,7 +13,7 @@ class Camera:
         self._depth.enable_depth_rendering()
 
     def render_rgb(self, data) -> np.ndarray:
-        self._rgb.update_scene(data, camera="ego")
+        self._rgb.update_scene(data, camera="fpv")
         return self._rgb.render()
 
     def render_depth(self, data) -> np.ndarray:

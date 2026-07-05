@@ -383,11 +383,11 @@ def _robot_body(map: Map, robot_start) -> str:
       <geom name="cargo_box" type="box" size="0.10 0.10 0.08"
             pos="0 0 {torso_z + ROBOT_BODY_HALFHEIGHT + 0.09}"
             contype="0" conaffinity="0" rgba="0.72 0.55 0.35 0"/>
-      <!-- fpv: true first-person view at the sensor head, mounted at the front of
-           the robot looking forward with a slight (~9deg) downtilt so the floor
-           just ahead (and trash on it) is visible. No setback: the robot's own
-           body is NOT in frame. -->
-      <camera name="fpv" pos="{fwd} 0 {head_z}" xyaxes="0 -1 0 0.15 0 0.99" fovy="{EGO_FOVY}"/>
+      <!-- fpv: realistic onboard camera. Mounted ON the head (not hovering out
+           front), pulled back over the torso and tilted down ~17deg so it sees
+           the floor/trash ahead AND a sliver of the robot's own front chassis at
+           the bottom edge - what a real body-mounted camera would frame. -->
+      <camera name="fpv" pos="-0.04 0 {head_z}" xyaxes="0 -1 0 0.34 0 0.94" fovy="{EGO_FOVY}"/>
       <!-- ego: chase view set back/above the robot so its own body shows at the
            frame bottom. xyaxes tilts the view down ~12deg (up vector 0.21 0 0.98). -->
       <camera name="ego" pos="{-EGO_CAM_BACK} 0 {head_z + EGO_CAM_RAISE}" xyaxes="0 -1 0 0.21 0 0.98" fovy="{EGO_FOVY}"/>

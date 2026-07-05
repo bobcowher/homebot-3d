@@ -62,13 +62,15 @@ def test_visual_geoms_do_not_collide():
         assert model.geom_contype[gid] == 0
         assert model.geom_conaffinity[gid] == 0
 
-def test_fpv_camera_present_and_forward():
-    # True first-person camera: exists, sits at/near the front of the robot (x>0,
-    # not set back like the chase cam), roughly at head height.
+def test_fpv_camera_present_and_mounted_on_body():
+    # Realistic onboard first-person camera: mounted on the head near the body
+    # centre (not set back like the chase cam) and at head height.
     m, model = _model()
     cid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, "fpv")
+    ego = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, "ego")
     assert cid != -1
-    assert model.cam_pos[cid][0] > 0.0            # forward of centre, not behind
+    assert abs(model.cam_pos[cid][0]) < 0.1              # ~on the body, not out front/back
+    assert model.cam_pos[cid][0] > model.cam_pos[ego][0]  # far more forward than chase
     world_z = model.cam_pos[cid][2] + ROBOT_HALFHEIGHT
     np.testing.assert_allclose(world_z, CAMERA_HEIGHT, atol=1e-6)
 
