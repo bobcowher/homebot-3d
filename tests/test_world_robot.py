@@ -62,6 +62,14 @@ def test_visual_geoms_do_not_collide():
         assert model.geom_contype[gid] == 0
         assert model.geom_conaffinity[gid] == 0
 
+def test_near_clip_plane_closer_than_wall_distance():
+    # The fpv camera sits ~0.22 m from a wall when the robot is flush against it.
+    # The near clip plane (znear as a fraction of stat.extent) must be well inside
+    # that, or the wall gets clipped and you see through it.
+    _, model = _model()
+    near = float(model.vis.map.znear) * float(model.stat.extent)
+    assert near < 0.05, f"near clip plane {near:.3f} m too far - walls will clip"
+
 def test_fpv_camera_present_and_mounted_on_body():
     # Realistic onboard first-person camera: mounted on the head near the body
     # centre (not set back like the chase cam) and at head height.

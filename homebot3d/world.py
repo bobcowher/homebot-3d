@@ -387,7 +387,7 @@ def _robot_body(map: Map, robot_start) -> str:
            front), pulled back over the torso and tilted down ~17deg so it sees
            the floor/trash ahead AND a sliver of the robot's own front chassis at
            the bottom edge - what a real body-mounted camera would frame. -->
-      <camera name="fpv" pos="-0.04 0 {head_z}" xyaxes="0 -1 0 0.34 0 0.94" fovy="{EGO_FOVY}"/>
+      <camera name="fpv" pos="-0.01 0 {head_z}" xyaxes="0 -1 0 0.24 0 0.97" fovy="{EGO_FOVY}"/>
       <!-- ego: chase view set back/above the robot so its own body shows at the
            frame bottom. xyaxes tilts the view down ~12deg (up vector 0.21 0 0.98). -->
       <camera name="ego" pos="{-EGO_CAM_BACK} 0 {head_z + EGO_CAM_RAISE}" xyaxes="0 -1 0 0.21 0 0.98" fovy="{EGO_FOVY}"/>
@@ -403,6 +403,13 @@ def build_mjcf(map: Map, robot_start=None, trash=None) -> str:
   <option timestep="0.01" gravity="0 0 -9.81"/>
   <visual>
     <headlight ambient="0.4 0.4 0.4" diffuse="0.6 0.6 0.6" specular="0 0 0"/>
+    <!-- znear/zfar are fractions of model.stat.extent (~17 m here). The default
+         znear=0.01 puts the near clip plane at ~0.17 m - but the fpv camera sits
+         only ~0.22 m from a wall when the robot is flush against it, so the wall
+         fell inside the near plane and got clipped (you could see through walls).
+         Pull the near plane in to ~0.03 m and the far plane down to a scene-sized
+         ~52 m (was ~870 m) for the depth precision that also curbs z-fighting. -->
+    <map znear="0.0018" zfar="3"/>
   </visual>
 {_asset_block()}
   <worldbody>
