@@ -36,12 +36,17 @@ def test_package_pickup_then_deliver():
     tm = TaskManager(goals=["package"])
     tm.reset(m, n_trash=0, rng=np.random.default_rng(0))
     sx, sy = tile_center(*m.pickup_tiles["package"])    # door (source)
-    tx, ty = tile_center(*m.dropoff_tiles["package"])   # (16,4) kitchen table
+    tx, ty = tile_center(*m.dropoff_tiles["package"])   # recliner / human (target)
     assert tm.step(FakeRobot(sx, sy)) == 1.0
     assert "package" in tm.carrying
     assert tm.step(FakeRobot(tx, ty)) == 1.0
     assert "package" not in tm.carrying
     assert tm.is_done() is True
+
+
+def test_package_delivers_to_the_human():
+    m = DefaultHouseMap()
+    assert m.dropoff_tiles["package"] == m.fixtures["recliner"]
 
 def test_current_goal_xy_switches_at_pickup():
     m = DefaultHouseMap()

@@ -274,6 +274,17 @@ def _furniture_piece(kind: str, idx: int) -> str:
             f'<geom name="{p}_box" type="box" size="0.15 0.15 0.25" '
             f'pos="0 0 0.25" material="woodmat"/>'
         )
+    if kind == "tv":
+        # Flat-panel TV on a low stand; the screen faces +y (toward the recliner,
+        # which sits to the south and is rotated to face back at it).
+        return (
+            f'<geom name="{p}_stand" type="box" size="0.30 0.12 0.10" '
+            f'pos="0 0 0.10" material="woodmat"/>'
+            f'<geom name="{p}_panel" type="box" size="0.34 0.03 0.22" '
+            f'pos="0 0.09 0.44" rgba="0.06 0.06 0.08 1"/>'
+            f'<geom name="{p}_screen" type="box" size="0.30 0.01 0.18" '
+            f'pos="0 0.115 0.44" rgba="0.20 0.32 0.48 1"/>'
+        )
     # Fallback: a plain textured box.
     return (
         f'<geom name="{p}_box" type="box" size="0.28 0.28 0.28" '
@@ -294,10 +305,12 @@ def _furniture_bodies(map: Map) -> str:
 
 def _fixture_bodies(map: Map) -> str:
     parts = []
+    euler = getattr(map, "fixture_euler", {})
     for name, (col, row) in map.fixtures.items():
         cx, cy = tile_center(col, row)
+        rot = f' euler="0 0 {euler[name]}"' if name in euler else ""
         parts.append(
-            f'<body name="fixture_{name}" pos="{cx} {cy} 0">'
+            f'<body name="fixture_{name}" pos="{cx} {cy} 0"{rot}>'
             f'{_furniture_geoms(name)}</body>'
         )
     return "\n".join(parts)

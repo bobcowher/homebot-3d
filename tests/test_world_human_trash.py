@@ -40,6 +40,14 @@ def test_drink_goal_still_reachable_with_human():
             f"human geom {g} too far from centre"
 
 
+# --- living room: TV in, sofa out ---
+
+def test_tv_present_and_sofa_removed():
+    model = compile_model(DefaultHouseMap())
+    assert _geoms_with_prefix(model, "fixture_tv_"), "TV should be in the living room"
+    assert _geoms_with_prefix(model, "fixture_sofa_") == [], "sofa should be gone"
+
+
 # --- rendered trash ---
 
 def test_trash_piles_rendered_and_non_colliding():

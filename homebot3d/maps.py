@@ -1,3 +1,4 @@
+import math
 import numpy as np
 from typing import Optional, Type
 
@@ -14,6 +15,7 @@ class Map:
     furniture: list          # [(kind, col, row)] — non-goal obstacle pieces
     pickup_tiles: dict       # {carry_goal: (col,row)} where the item is picked up
     dropoff_tiles: dict      # {carry_goal: (col,row)} where it is delivered
+    fixture_euler: dict = {}  # {name: yaw_radians} — rotate a fixture body about z
 
     def _finalize(self):
         mask = self.tiles == FLOOR
@@ -63,10 +65,14 @@ class DefaultHouseMap(Map):
             ("v", 23, 9, 10),   # east exit
         ]
         self.robot_start_tile = (8, 4)
+        # The recliner+human are rotated 180° to face -y (north), toward a TV on
+        # the north wall — a bachelor watching a movie. Keeping the setup against
+        # the north wall leaves the south (row-8) doorway clear. No sofa.
+        self.fixture_euler = {"recliner": math.pi}
         # (kind, col, row) — non-goal obstacle furniture, one-body each.
         self.furniture = [
-            ("sofa",          3, 3),    # living
-            ("coffee_table",  5, 3),    # living
+            ("tv",            5, 2),    # living — north wall, faces the human (+y)
+            ("coffee_table",  5, 3),    # living — between recliner and TV
             ("counter",      20, 3),    # kitchen
             ("kitchen_table",16, 4),    # kitchen
             ("bed",           4, 14),   # bedroom
@@ -79,7 +85,7 @@ class DefaultHouseMap(Map):
         }
         self.dropoff_tiles = {
             "drink":   self.fixtures["recliner"],  # hand it to the seated human
-            "package": (16, 4),                    # bring it in to the kitchen table
+            "package": self.fixtures["recliner"],  # bring the parcel in to the human too
         }
         self._finalize()
 
