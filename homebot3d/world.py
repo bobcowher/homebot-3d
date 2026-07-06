@@ -34,6 +34,10 @@ def _asset_block() -> str:
     <material name="wallmat"  texture="wall_paint" texrepeat="4 2" reflectance="0.02"/>
     <material name="woodmat"  texture="wood"       texrepeat="2 2" reflectance="0.05"/>
     <material name="fabricmat" texture="fabric"    texrepeat="2 2" reflectance="0.02"/>
+    <!-- The robot's own body fills the bottom of its onboard (fpv) camera. High
+         emission makes it self-lit so the head/mast self-shadow doesn't smudge it,
+         without turning off scene shadows (MuJoCo shadows are per-light only). -->
+    <material name="robotbodymat" rgba="0.9 0.9 0.92 1" emission="0.7"/>
   </asset>"""
 
 
@@ -159,9 +163,22 @@ def _yard_geoms(map: Map) -> str:
     ex = (col + 1) * TILE            # east face of the wall / lawn start (12.0)
     yc = (row + 1) * TILE            # centre of the 2-tile opening (5.0)
     half = WALL_THICK / 2            # matches the jamb posts from _door_frames
-    lz = 0.12                        # lintel half-height
+    hz = WALL_HEIGHT / 2
+    lz = 0.05                        # lintel half-height (slim header)
+    # The east exterior wall (col 23) only renders where a tile faces interior
+    # floor, so the two tiles flanking the opening (rows 8 and 11) are skipped and
+    # sky leaks down both sides of the door. Bridge each gap with a quarter-tile
+    # `wall_` panel from the opening edge to the kitchen/bedroom wall end, so the
+    # door sits in a continuous wall.
+    n_edge = row * TILE              # opening's north edge (kitchen side)
+    s_edge = (row + 2) * TILE        # opening's south edge (bedroom side)
     vis = 'contype="0" conaffinity="0"'
     return "\n".join([
+        # wall infill flanking the opening, flush with the col-23 east wall.
+        f'<geom name="wall_doorside_n" type="box" material="wallmat" '
+        f'size="{half} {TILE / 4} {hz}" pos="{wx} {n_edge - TILE / 4} {hz}"/>',
+        f'<geom name="wall_doorside_s" type="box" material="wallmat" '
+        f'size="{half} {TILE / 4} {hz}" pos="{wx} {s_edge + TILE / 4} {hz}"/>',
         # lintel/header spanning the two jamb posts at the top of the opening, so
         # the front door reads as a framed entrance rather than bare goalposts.
         # Same dark wood as the posts; visual-only (it sits above the robot and the
@@ -169,11 +186,11 @@ def _yard_geoms(map: Map) -> str:
         f'<geom name="yard_lintel" type="box" {vis} '
         f'size="{half} 0.5 {lz}" pos="{wx} {yc} {WALL_HEIGHT - lz}" '
         f'rgba="0.30 0.22 0.14 1"/>',
-        # low gate across the opening: tall enough (0.30 m) to stop the floor robot,
-        # low enough to see the yard over it. `wall_` so it collides (view-only
-        # lawn — the robot can't drive out).
+        # Invisible barrier across the opening: `wall_` so it collides and the floor
+        # robot can't drive out, but alpha 0 so the doorway reads as fully open (no
+        # visible gate/kickplate). 0.30 m is ample to stop the low collision cylinder.
         f'<geom name="wall_gate" type="box" size="0.03 0.47 0.15" '
-        f'pos="{wx + 0.03} {yc} 0.15" rgba="0.34 0.26 0.18 1"/>',
+        f'pos="{wx + 0.03} {yc} 0.15" rgba="0.34 0.26 0.18 0"/>',
         # grass lawn just above floor level, east of the door and out past the edge.
         f'<geom name="yard_lawn" type="box" {vis} size="2.0 3.2 0.01" '
         f'pos="{ex + 2.0} {yc} 0.012" rgba="0.42 0.58 0.30 1"/>',
@@ -441,7 +458,7 @@ def _robot_body(map: Map, robot_start) -> str:
             size="{ROBOT_RADIUS} {ROBOT_HALFHEIGHT}" rgba="0.25 0.5 0.75 1"/>
       <geom name="robot_torso" type="box" {vis}
             size="{ROBOT_BODY_HALF} {ROBOT_BODY_HALF} {ROBOT_BODY_HALFHEIGHT}"
-            pos="0 0 {torso_z}" rgba="0.9 0.9 0.92 1"/>
+            pos="0 0 {torso_z}" material="robotbodymat"/>
       <geom name="robot_mast" type="box" {vis}
             size="0.02 0.02 {mast_hz}" pos="0 0 {mast_cz}" rgba="0.3 0.3 0.32 1"/>
       <geom name="robot_head" type="box" {vis}
@@ -491,6 +508,11 @@ def build_mjcf(map: Map, robot_start=None, trash=None) -> str:
     fy = rows * TILE
     return f"""
 <mujoco model="homebot3d">
+  <!-- All euler angles in this model are radians (e.g. the recliner's math.pi
+       half-turn, the trash pile's tumble angles). MuJoCo defaults to degrees, so
+       without this the recliner rotated ~3 degrees and the human faced away from
+       the TV. -->
+  <compiler angle="radian"/>
   <option timestep="0.01" gravity="0 0 -9.81"/>
   <visual>
     <!-- Default shadowsize (1024) spread over the ~17 m scene extent gives coarse,

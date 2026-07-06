@@ -39,8 +39,10 @@ def test_gate_is_collidable_low_barrier():
     # wall_-prefixed → Robot.collided() treats it as an obstacle.
     assert model.geom_contype[gid] == 1
     assert model.geom_conaffinity[gid] == 1
-    # Low enough to see the yard over, tall enough to stop the floor robot.
+    # Low, and tall enough to stop the floor robot.
     assert model.geom_size[gid][2] < WALL_HEIGHT / 2
+    # Invisible (alpha 0) so the doorway reads as open — collision only.
+    assert model.geom_rgba[gid][3] == 0
 
 
 def test_lawn_tiles_never_spawn_the_robot_or_trash():
