@@ -1,5 +1,5 @@
-"""The front-door yard: lawn, stoop, open door leaf, collidable gate, and the
-doorstep parcel that shows until the robot picks the package up."""
+"""The front-door yard: lawn, stoop, framed doorway (lintel), collidable gate,
+and the doorstep parcel that shows until the robot picks the package up."""
 import mujoco
 from homebot3d.maps import DefaultHouseMap, LAWN
 from homebot3d.world import compile_model
@@ -22,7 +22,7 @@ def _geoms_with_prefix(model, prefix):
 
 def test_yard_scenery_present_and_non_colliding():
     model = compile_model(DefaultHouseMap())
-    for name in ("yard_lawn", "yard_stoop", "yard_door_leaf"):
+    for name in ("yard_lawn", "yard_stoop", "yard_lintel"):
         gid = _gid(model, name)
         assert gid != -1, f"missing {name}"
         # yard_-prefixed scenery is view-only, so it must not collide.

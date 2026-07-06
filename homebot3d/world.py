@@ -145,12 +145,12 @@ def _door_frames(map: Map) -> str:
 
 
 def _yard_geoms(map: Map) -> str:
-    """The world outside the east front door: an open door leaf, front steps down
-    to a lawn, and a translucent storm-door across the opening. The storm door is
-    a `wall_` geom so it collides — the robot sees the yard but can't drive out
-    (view-only, matching the 2D env's solid lawn). Everything else is visual-only.
-    Keyed off the "door" fixture tile; the opening runs +y two tiles and the yard
-    lies to +x (east) of the wall.
+    """The world outside the east front door: a framed doorway (jamb posts from
+    _door_frames plus a lintel across the top here), front steps down to a lawn,
+    and a low gate across the opening. The gate is a `wall_` geom so it collides —
+    the robot sees the yard but can't drive out (view-only, matching the 2D env's
+    solid lawn). Everything else is visual-only. Keyed off the "door" fixture tile;
+    the opening runs +y two tiles and the yard lies to +x (east) of the wall.
     """
     if "door" not in getattr(map, "fixtures", {}):
         return ""
@@ -158,8 +158,17 @@ def _yard_geoms(map: Map) -> str:
     wx = (col + 0.5) * TILE          # wall centreline x (11.75)
     ex = (col + 1) * TILE            # east face of the wall / lawn start (12.0)
     yc = (row + 1) * TILE            # centre of the 2-tile opening (5.0)
+    half = WALL_THICK / 2            # matches the jamb posts from _door_frames
+    lz = 0.12                        # lintel half-height
     vis = 'contype="0" conaffinity="0"'
     return "\n".join([
+        # lintel/header spanning the two jamb posts at the top of the opening, so
+        # the front door reads as a framed entrance rather than bare goalposts.
+        # Same dark wood as the posts; visual-only (it sits above the robot and the
+        # gate already blocks the opening).
+        f'<geom name="yard_lintel" type="box" {vis} '
+        f'size="{half} 0.5 {lz}" pos="{wx} {yc} {WALL_HEIGHT - lz}" '
+        f'rgba="0.30 0.22 0.14 1"/>',
         # low gate across the opening: tall enough (0.30 m) to stop the floor robot,
         # low enough to see the yard over it. `wall_` so it collides (view-only
         # lawn — the robot can't drive out).
@@ -171,9 +180,6 @@ def _yard_geoms(map: Map) -> str:
         # stone stoop / front step on the threshold, where the parcel is left.
         f'<geom name="yard_stoop" type="box" {vis} size="0.25 0.5 0.012" '
         f'pos="{wx} {yc} 0.013" rgba="0.62 0.60 0.56 1"/>',
-        # open front door leaf, swung outward onto the lawn along the north jamb.
-        f'<geom name="yard_door_leaf" type="box" {vis} size="0.30 0.03 0.5" '
-        f'pos="{ex + 0.30} {yc - 0.47} 0.5" material="woodmat"/>',
     ])
 
 
@@ -487,6 +493,10 @@ def build_mjcf(map: Map, robot_start=None, trash=None) -> str:
 <mujoco model="homebot3d">
   <option timestep="0.01" gravity="0 0 -9.81"/>
   <visual>
+    <!-- Default shadowsize (1024) spread over the ~17 m scene extent gives coarse,
+         jagged shadow edges (visible as a stipple on walls/stoop). Quadruple the
+         shadow map so nearby geometry casts clean edges. -->
+    <quality shadowsize="4096"/>
     <headlight ambient="0.4 0.4 0.4" diffuse="0.6 0.6 0.6" specular="0 0 0"/>
     <!-- znear/zfar are fractions of model.stat.extent (~17 m here). The default
          znear=0.01 puts the near clip plane at ~0.17 m - but the fpv camera sits
